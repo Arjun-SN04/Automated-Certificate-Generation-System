@@ -175,7 +175,7 @@ export default function Airlines() {
       const res = await getParticipantsByAirline();
       setData(res.data);
       const init = {};
-      res.data.forEach(({ airline }) => { init[airline.airlineName] = true; });
+      res.data.forEach(({ airline }) => { init[airline.airlineName] = false; });
       setExpanded(init);
     } catch {
       toast.error('Failed to load airline data');
@@ -321,6 +321,28 @@ export default function Airlines() {
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  // ── Delete SELECTED participants ────────────────────────────────────────────────
+  const [deletingSelected, setDeletingSelected] = useState(false);
+  const handleDeleteSelected = async () => {
+    if (checked.size === 0) { toast.error('Please select at least one participant'); return; }
+    if (!window.confirm(`Delete ${checked.size} selected participant record(s)?\n\nThis action cannot be undone.`)) return;
+    setDeletingSelected(true);
+    let ok = 0, fail = 0;
+    for (const id of checked) {
+      try {
+        await deleteParticipant(id);
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setDeletingSelected(false);
+    setChecked(new Set());
+    fetchData();
+    if (fail === 0) toast.success(`${ok} record${ok !== 1 ? 's' : ''} deleted`);
+    else toast.error(`${ok} deleted, ${fail} failed`);
   };
 
   // ── Delete ALL data for an airline ─────────────────────────────────────────────
@@ -484,26 +506,47 @@ export default function Airlines() {
           )}
         </div>
 
-        <button
-          onClick={handleGenerateSelected}
-          disabled={checked.size === 0 || generating}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
-            checked.size > 0 && !generating
-              ? 'bg-primary-800 text-white hover:bg-primary-900 shadow-md hover:shadow-lg'
-              : 'bg-primary-100 text-primary-400 cursor-not-allowed'
-          }`}
-        >
-          {generating ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <HiOutlineDocumentDownload className="w-4 h-4" />
-          )}
-          {generating
-            ? 'Generating…'
-            : checked.size > 0
-            ? `Generate ${checked.size} Certificate${checked.size > 1 ? 's' : ''}`
-            : 'Generate Selected'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Delete Selected */}
+          <button
+            onClick={handleDeleteSelected}
+            disabled={checked.size === 0 || deletingSelected}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+              checked.size > 0 && !deletingSelected
+                ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-300'
+                : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'
+            }`}
+          >
+            {deletingSelected ? (
+              <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+            ) : (
+              <HiOutlineTrash className="w-4 h-4" />
+            )}
+            {deletingSelected ? 'Deleting…' : checked.size > 0 ? `Delete ${checked.size}` : 'Delete Selected'}
+          </button>
+
+          {/* Generate Selected */}
+          <button
+            onClick={handleGenerateSelected}
+            disabled={checked.size === 0 || generating}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+              checked.size > 0 && !generating
+                ? 'bg-primary-800 text-white hover:bg-primary-900 shadow-md hover:shadow-lg'
+                : 'bg-primary-100 text-primary-400 cursor-not-allowed'
+            }`}
+          >
+            {generating ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <HiOutlineDocumentDownload className="w-4 h-4" />
+            )}
+            {generating
+              ? 'Generating…'
+              : checked.size > 0
+              ? `Generate ${checked.size} Certificate${checked.size > 1 ? 's' : ''}`
+              : 'Generate Selected'}
+          </button>
+        </div>
       </div>
 
       {/* ── Search + Filter ── */}
@@ -584,43 +627,50 @@ export default function Airlines() {
               </button>
 
               <div className="flex items-center gap-3">
-                {/* Delete All Data button — admin only, destructive */}
-                {participants.length > 0 && (
-                  <button
-                    onClick={() => handleDeleteAirlineData(airline.airlineName, participants.length)}
-                    title={`Delete all ${participants.length} record(s) from ${airline.airlineName}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-colors"
-                  >
-                    <HiOutlineTrash className="w-3.5 h-3.5" />
-                    Delete All Data
-                  </button>
-                )}
-
-                {participants.length > 0 && (
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <div
-                      onClick={() => toggleGroupAll(participants)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                        groupAllCk
-                          ? 'bg-primary-800 border-primary-800'
-                          : groupSome
-                          ? 'border-primary-400 bg-primary-50'
-                          : 'border-primary-300 hover:border-primary-500'
+                {/* Delete All Data + Select All — only visible when accordion is open */}
+                {expanded[airline.airlineName] && participants.length > 0 && (
+                  <>
+                    <button
+                      onClick={handleDeleteSelected}
+                      disabled={!groupSome || deletingSelected}
+                      title={groupSome ? `Delete selected record(s) from ${airline.airlineName}` : 'Select records first'}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                        groupSome && !deletingSelected
+                          ? 'border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:border-red-300'
+                          : 'border-primary-200 text-primary-300 bg-primary-50 cursor-not-allowed'
                       }`}
                     >
-                      {groupAllCk && (
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                      {!groupAllCk && groupSome && (
-                        <div className="w-2 h-0.5 bg-primary-500 rounded" />
-                      )}
-                    </div>
-                    <span className="text-xs font-medium text-primary-600">
-                      {groupAllCk ? 'Deselect all' : 'Select all'}
-                    </span>
-                  </label>
+                      {deletingSelected
+                        ? <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+                        : <HiOutlineTrash className="w-3.5 h-3.5" />}
+                      Delete Selected
+                    </button>
+
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => toggleGroupAll(participants)}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                          groupAllCk
+                            ? 'bg-primary-800 border-primary-800'
+                            : groupSome
+                            ? 'border-primary-400 bg-primary-50'
+                            : 'border-primary-300 hover:border-primary-500'
+                        }`}
+                      >
+                        {groupAllCk && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {!groupAllCk && groupSome && (
+                          <div className="w-2 h-0.5 bg-primary-500 rounded" />
+                        )}
+                      </div>
+                      <span className="text-xs font-medium text-primary-600">
+                        {groupAllCk ? 'Deselect all' : 'Select all'}
+                      </span>
+                    </label>
+                  </>
                 )}
 
                 <button onClick={() => toggle(airline.airlineName)} className="p-1">
