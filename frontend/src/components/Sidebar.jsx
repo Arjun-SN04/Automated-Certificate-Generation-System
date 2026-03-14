@@ -2,23 +2,33 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   HiOutlineHome,
   HiOutlineUsers,
-  HiOutlineDocumentText,
   HiOutlineUserCircle,
   HiOutlineChevronLeft,
   HiOutlineChevronRight,
   HiOutlinePlusCircle,
+  HiOutlineOfficeBuilding,
 } from 'react-icons/hi';
+import { useAuth } from '../context/AuthContext';
 
-const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: HiOutlineHome },
-  { name: 'Participants', href: '/admin/participants', icon: HiOutlineUsers },
-  { name: 'Add Record', href: '/admin/participants/add', icon: HiOutlinePlusCircle },
-  { name: 'Certificates', href: '/admin/certificates', icon: HiOutlineDocumentText },
-  { name: 'Profile', href: '/admin/profile', icon: HiOutlineUserCircle },
+// Admin nav: Dashboard, Airlines (new), Profile
+// No Certificates, no Add Record
+const adminNavigation = [
+  { name: 'Dashboard', href: '/admin',            icon: HiOutlineHome },
+  { name: 'Airlines',  href: '/admin/airlines',   icon: HiOutlineOfficeBuilding },
+  { name: 'Profile',   href: '/admin/profile',    icon: HiOutlineUserCircle },
+];
+
+const airlineNavigation = [
+  { name: 'Dashboard',       href: '/admin',                  icon: HiOutlineHome },
+  { name: 'My Submissions',  href: '/admin/participants',     icon: HiOutlineUsers },
+  { name: 'New Enrollment',  href: '/admin/participants/add', icon: HiOutlinePlusCircle },
+  { name: 'Profile',         href: '/admin/profile',          icon: HiOutlineUserCircle },
 ];
 
 export default function Sidebar({ open, setOpen }) {
   const navigate = useNavigate();
+  const { isAdmin, admin } = useAuth();
+  const navigation = isAdmin ? adminNavigation : airlineNavigation;
 
   return (
     <aside
@@ -35,7 +45,9 @@ export default function Sidebar({ open, setOpen }) {
           {open && (
             <div className="animate-fade-in text-left">
               <h1 className="text-sm font-bold text-primary-800 leading-tight">IFOA</h1>
-              <p className="text-[10px] text-primary-400 font-medium">Certificate System</p>
+              <p className="text-[10px] text-primary-400 font-medium">
+                {isAdmin ? 'Certificate System' : 'Airline Portal'}
+              </p>
             </div>
           )}
         </button>
@@ -53,11 +65,22 @@ export default function Sidebar({ open, setOpen }) {
         )}
       </button>
 
+      {/* Airline badge */}
+      {!isAdmin && open && admin?.airlineName && (
+        <div className="mx-3 mt-3 px-3 py-2 bg-accent-50 border border-accent-200 rounded-lg flex items-center gap-2 animate-fade-in">
+          <HiOutlineOfficeBuilding className="w-4 h-4 text-accent-600 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-accent-500 font-semibold uppercase tracking-wider">Airline</p>
+            <p className="text-xs font-semibold text-accent-800 truncate">{admin.airlineName}</p>
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1">
         {open && (
           <p className="text-[10px] font-semibold text-primary-400 uppercase tracking-wider px-3 mb-3">
-            Navigation
+            {isAdmin ? 'Navigation' : 'My Portal'}
           </p>
         )}
         {navigation.map((item) => (
@@ -88,7 +111,9 @@ export default function Sidebar({ open, setOpen }) {
         <div className="p-4 border-t border-primary-200 animate-fade-in">
           <div className="bg-primary-50 rounded-lg p-3">
             <p className="text-xs font-semibold text-primary-700">IFOA v1.0</p>
-            <p className="text-[10px] text-primary-400 mt-0.5">Certificate Management</p>
+            <p className="text-[10px] text-primary-400 mt-0.5">
+              {isAdmin ? 'Administrator' : 'Airline User'}
+            </p>
           </div>
         </div>
       )}

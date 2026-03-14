@@ -10,8 +10,10 @@ import Participants from './pages/Participants';
 import AddParticipant from './pages/AddParticipant';
 import EditParticipant from './pages/EditParticipant';
 import Certificates from './pages/Certificates';
+import Airlines from './pages/Airlines';
 import Profile from './pages/Profile';
 
+// Requires any authenticated user (admin or airline)
 function ProtectedRoute({ children }) {
   const { admin, loading } = useAuth();
   if (loading) {
@@ -25,6 +27,16 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Requires admin role — redirects airlines to dashboard
+function AdminRoute({ children }) {
+  const { admin, loading, isAdmin } = useAuth();
+  if (loading) return null;
+  if (!admin) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/admin" replace />;
+  return children;
+}
+
+// Redirects logged-in users away from login/signup
 function GuestRoute({ children }) {
   const { admin, loading } = useAuth();
   if (loading) return null;
@@ -49,15 +61,20 @@ function App() {
       />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/login"  element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
+
         <Route path="/admin" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          {/* Available to all authenticated users */}
           <Route index element={<Dashboard />} />
           <Route path="participants" element={<Participants />} />
           <Route path="participants/add" element={<AddParticipant />} />
-          <Route path="participants/edit/:id" element={<EditParticipant />} />
-          <Route path="certificates" element={<Certificates />} />
           <Route path="profile" element={<Profile />} />
+
+          {/* Admin-only routes */}
+          <Route path="airlines" element={<AdminRoute><Airlines /></AdminRoute>} />
+          <Route path="participants/edit/:id" element={<AdminRoute><EditParticipant /></AdminRoute>} />
+          <Route path="certificates" element={<AdminRoute><Certificates /></AdminRoute>} />
         </Route>
       </Routes>
     </>

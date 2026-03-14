@@ -18,24 +18,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auth
-export const signup = (data) => api.post('/auth/signup', data);
-export const login = (data) => api.post('/auth/login', data);
-export const getMe = () => api.get('/auth/me');
+// ── Admin Auth ──────────────────────────────────────────────────────────────
+export const signup      = (data) => api.post('/auth/signup', data);
+export const login       = (data) => api.post('/auth/login', data);
+export const getMe       = ()     => api.get('/auth/me');
 export const updateProfile = (data) => api.put('/auth/profile', data);
 
-// Participants
-export const getParticipants = (params) => api.get('/participants', { params });
-export const getParticipant = (id) => api.get(`/participants/${id}`);
-export const createParticipant = (data) => api.post('/participants', data);
-export const updateParticipant = (id, data) => api.put(`/participants/${id}`, data);
-export const deleteParticipant = (id) => api.delete(`/participants/${id}`);
+// ── Airline Auth ────────────────────────────────────────────────────────────
+export const airlineSignup = (data) => api.post('/auth/airline/signup', data);
+export const airlineLogin  = (data) => api.post('/auth/airline/login', data);
 
-// Certificates
-export const getModulesList = () => api.get('/certificates/modules');
+// ── Participants ────────────────────────────────────────────────────────────
+export const getParticipantsByAirline = () => api.get('/participants/by-airline');
+export const getParticipants    = (params) => api.get('/participants', { params });
+export const getParticipant     = (id)     => api.get(`/participants/${id}`);
+export const createParticipant       = (data)   => api.post('/participants', data);
+export const bulkCreateParticipants  = (rows)   => api.post('/participants/bulk', rows);
+export const updateParticipant  = (id, data) => api.put(`/participants/${id}`, data);
+export const deleteParticipant      = (id)          => api.delete(`/participants/${id}`);
+export const deleteAirlineData      = (airlineName) => api.delete(`/participants/airline/${encodeURIComponent(airlineName)}`);
+
+// ── Certificates ────────────────────────────────────────────────────────────
+export const getModulesList     = ()     => api.get('/certificates/modules');
 export const generateCertificateUrl = (id) => `${API_BASE}/certificates/generate/${id}`;
-export const previewCertificateUrl = (id) => `${API_BASE}/certificates/preview/${id}`;
+export const previewCertificateUrl  = (id) => `${API_BASE}/certificates/preview/${id}`;
 export const generateCertificateWithModules = (id, modules) =>
   api.post(`/certificates/generate/${id}`, { modules }, { responseType: 'blob' });
+// Generate cert and return blob (no auto-download — caller decides what to do)
+export const generateCertificateBlob = (id) =>
+  api.get(`/certificates/generate/${id}`, { responseType: 'blob' });
 
 export default api;

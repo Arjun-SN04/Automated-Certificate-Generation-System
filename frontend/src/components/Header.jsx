@@ -16,6 +16,7 @@ import {
 import { getParticipants } from '../api';
 import { useAuth } from '../context/AuthContext';
 
+
 const defaultNotifications = [
   { id: 1, icon: HiOutlineCheckCircle, color: 'text-emerald-500', title: 'System Ready', desc: 'Certificate system is online and operational.', time: 'Just now', read: false },
   { id: 2, icon: HiOutlineDocumentText, color: 'text-blue-500', title: 'Templates Loaded', desc: 'All 3 certificate templates loaded successfully.', time: '5m ago', read: false },
@@ -39,6 +40,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   const debounceRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const { isAdmin } = useAuth();
   const initials = admin?.name
     ? admin.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'AD';
@@ -284,8 +286,12 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
               <span className="text-white text-xs font-semibold">{initials}</span>
             </div>
             <div className="hidden md:block text-left">
-              <p className="text-sm font-medium text-primary-800">{admin?.name || 'Admin'}</p>
-              <p className="text-[10px] text-primary-400">{admin?.role || 'Administrator'}</p>
+            <p className="text-sm font-medium text-primary-800">
+              {isAdmin ? (admin?.name || 'Admin') : (admin?.airlineName || admin?.name || 'Airline')}
+              </p>
+              <p className="text-[10px] text-primary-400">
+                {isAdmin ? 'Administrator' : 'Airline User'}
+              </p>
             </div>
           </button>
 
@@ -293,7 +299,10 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
             <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl border border-primary-200 shadow-lg py-2 z-50 animate-fade-in">
               <div className="px-4 py-3 border-b border-primary-100">
                 <p className="text-sm font-semibold text-primary-800">{admin?.name || 'Admin'}</p>
-                <p className="text-xs text-primary-400">{admin?.email || 'admin@ifoa.com'}</p>
+                {!isAdmin && admin?.airlineName && (
+                  <p className="text-[10px] font-semibold text-accent-600 mt-0.5">{admin.airlineName}</p>
+                )}
+                <p className="text-xs text-primary-400">{admin?.email || ''}</p>
               </div>
               <button
                 onClick={() => { setProfileOpen(false); navigate('/admin/profile'); }}

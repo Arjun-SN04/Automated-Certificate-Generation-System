@@ -2,21 +2,33 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const mongoose = require('mongoose');
+
+// Clear any cached models so nodemon restarts start completely fresh
+// This prevents stale pre-save hook stacking across hot reloads
+delete mongoose.models.Participant;
+delete mongoose.models.Admin;
+delete mongoose.models.Airline;
+delete mongoose.models.CertCounter;
+
+// Register all models fresh
+require('./models/Admin');
+require('./models/Airline');
+require('./models/Participant');
+require('./models/CertCounter');
+
 const { initDB } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Initialize DB then start server
 initDB().then(() => {
   const participantsRouter = require('./routes/participants');
   const certificatesRouter = require('./routes/certificates');
@@ -26,7 +38,6 @@ initDB().then(() => {
   app.use('/api/participants', participantsRouter);
   app.use('/api/certificates', certificatesRouter);
 
-  // Serve frontend in production
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../frontend/dist')));
     app.get('*', (req, res) => {
@@ -35,9 +46,9 @@ initDB().then(() => {
   }
 
   app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
   });
 }).catch((err) => {
-  console.error('Failed to initialize database:', err);
+  console.error('❌ Failed to initialize database:', err);
   process.exit(1);
 });

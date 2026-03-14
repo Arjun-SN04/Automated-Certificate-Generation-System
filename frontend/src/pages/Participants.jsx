@@ -1,17 +1,162 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiOutlinePencil,
   HiOutlineTrash,
   HiOutlineSearch,
   HiOutlinePlusCircle,
   HiOutlineFilter,
+  HiOutlineChevronDown,
+  HiOutlineChevronRight,
+  HiOutlineAcademicCap,
+  HiOutlineUsers,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { getParticipants, deleteParticipant } from '../api';
 
+const TRAINING_TYPES = [
+  { value: 'FDI', label: 'Flight Dispatch Initial',      color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  { value: 'FDR', label: 'Flight Dispatch Recurrent',    color: 'bg-violet-100 text-violet-700 border-violet-200'   },
+  { value: 'FDA', label: 'Flight Dispatch Advanced',     color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  { value: 'FTL', label: 'Flight Time Limitations',      color: 'bg-violet-100 text-violet-700 border-violet-200'   },
+  { value: 'NDG', label: 'Dangerous Goods No-Carry',     color: 'bg-red-100 text-red-700 border-red-200'            },
+  { value: 'HF',  label: 'Human Factors for OCC',        color: 'bg-amber-100 text-amber-700 border-amber-200'      },
+  { value: 'GD',  label: 'Ground Operations',            color: 'bg-blue-100 text-blue-700 border-blue-200'         },
+  { value: 'TCD', label: 'Training Competencies Dev.',   color: 'bg-sky-100 text-sky-700 border-sky-200'            },
+];
+const TYPE_MAP = Object.fromEntries(TRAINING_TYPES.map(t => [t.value, t]));
+
+function typeBadge(type) {
+  const t = TYPE_MAP[type] || { color: 'bg-primary-100 text-primary-600 border-primary-200' };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${t.color}`}>
+      {type}
+    </span>
+  );
+}
+
+function fmtDate(str) {
+  if (!str) return '—';
+  return new Date(str).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function initials(name = '') {
+  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
+
+// ─── Collapsible group used in airline view ───────────────────────────────────
+function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const first = records[0];
+  const typeInfo = TYPE_MAP[first.training_type] || {};
+
+  const submittedOn = first.created_at
+    ? new Date(first.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
+
+  return (
+    <div className="card overflow-hidden">
+      {/* Group header — click to collapse */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-4 px-5 py-4 bg-primary-50 hover:bg-primary-100/60 transition-colors text-left"
+      >
+        {/* Chevron */}
+        <span className="text-primary-400 flex-shrink-0">
+          {open
+            ? <HiOutlineChevronDown className="w-4 h-4" />
+            : <HiOutlineChevronRight className="w-4 h-4" />}
+        </span>
+
+        {/* Training type badge */}
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+          typeInfo.color || 'bg-primary-100 text-primary-600 border-primary-200'
+        }`}>
+          <HiOutlineAcademicCap className="w-3.5 h-3.5" />
+          {first.training_type} — {typeInfo.label || first.training_type}
+        </span>
+
+        {/* Spacer */}
+        <span className="flex-1" />
+
+        {/* Count pill */}
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-200 text-primary-600 text-[11px] font-semibold">
+          <HiOutlineUsers className="w-3 h-3" />
+          {records.length} participant{records.length !== 1 ? 's' : ''}
+        </span>
+      </button>
+
+      {/* Collapsible participant list */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            {/* Shared details bar — location & modules are batch-level */}
+            {(first.location || first.modules) && (
+              <div className="px-5 py-2.5 bg-white border-b border-primary-100 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-primary-500">
+                {first.location && <span><span className="font-medium text-primary-700">Location:</span> {first.location}</span>}
+                {first.modules  && <span><span className="font-medium text-primary-700">Modules:</span> {first.modules}</span>}
+              </div>
+            )}
+
+            {/* Participant rows */}
+            <div className="divide-y divide-primary-100">
+              {records.map((rec, i) => (
+                <div key={rec.id || rec._id}
+                  className="flex items-center gap-4 px-5 py-3 hover:bg-primary-50/40 transition-colors">
+                  {/* Number */}
+                  <span className="w-5 text-[11px] font-semibold text-primary-400 flex-shrink-0">{i + 1}</span>
+
+                  {/* Avatar + Name */}
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[10px] font-bold text-primary-600">{initials(rec.participant_name)}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-primary-800 truncate block">{rec.participant_name}</span>
+                      <span className="text-[10px] text-primary-400">
+                        {rec.department && <>{rec.department} &middot; </>}
+                        {fmtDate(rec.training_date)}
+                        {rec.end_date && <> → {fmtDate(rec.end_date)}</>}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cert status */}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                    rec.cert_sequence
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-600 border-amber-200'
+                  }`}>
+                    {rec.cert_sequence ? '✓ Certificate Issued' : 'Pending'}
+                  </span>
+
+                  {/* Locked badge */}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary-100 text-primary-500">
+                    🔒 Locked
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function Participants() {
+  const { isAdmin } = useAuth();
   const [records, setRecords] = useState([]);
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') || '');
@@ -33,14 +178,7 @@ export default function Participants() {
     }
   };
 
-  useEffect(() => {
-    fetchRecords();
-  }, [filterType, search]);
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchRecords();
-  };
+  useEffect(() => { fetchRecords(); }, [filterType, search]);
 
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Delete record for "${name}"?`)) return;
@@ -53,11 +191,106 @@ export default function Participants() {
     }
   };
 
-  const trainingTypes = ['Dispatch Graduate', 'Human Factors', 'Recurrent'];
+  // ── Group records by training_type only (airline view)
+  // Students from the same training programme are shown together regardless of date
+  const groups = useMemo(() => {
+    if (isAdmin) return null;
+    const map = {};
+    records.forEach(r => {
+      const key = r.training_type || 'Unknown';
+      if (!map[key]) map[key] = [];
+      map[key].push(r);
+    });
+    // Sort groups: most recent training_date first inside each group
+    Object.values(map).forEach(arr =>
+      arr.sort((a, b) => new Date(b.training_date || 0) - new Date(a.training_date || 0))
+    );
+    // Sort groups themselves: most recent record first
+    return Object.entries(map).sort(([, a], [, b]) => {
+      const da = new Date(a[0].created_at || 0);
+      const db = new Date(b[0].created_at || 0);
+      return db - da;
+    });
+  }, [records, isAdmin]);
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // AIRLINE VIEW — grouped collapsible layout
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (!isAdmin) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-primary-800">My Submissions</h1>
+            <p className="text-sm text-primary-400 mt-1">Your training enrollment records, grouped by training batch</p>
+          </div>
+          <Link to="/admin/participants/add" className="btn-primary flex items-center gap-2">
+            <HiOutlinePlusCircle className="w-4 h-4" />
+            New Enrollment
+          </Link>
+        </div>
+
+        {/* Search + filter */}
+        <div className="card p-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
+              <input
+                type="text"
+                placeholder="Search by name or department…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="input-field pl-10"
+              />
+            </div>
+            <div className="relative">
+              <HiOutlineFilter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
+              <select
+                value={filterType}
+                onChange={e => setFilterType(e.target.value)}
+                className="input-field pl-10 pr-8 appearance-none cursor-pointer min-w-[180px]"
+              >
+                <option value="">All Training Types</option>
+                {TRAINING_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>{t.value} – {t.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20 gap-2 text-primary-400">
+            <div className="w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
+            <span className="text-sm">Loading submissions…</span>
+          </div>
+        ) : groups && groups.length === 0 ? (
+          <div className="card p-12 text-center text-sm text-primary-400">No submissions found.</div>
+        ) : (
+          <div className="space-y-3">
+            {groups && groups.map(([key, recs]) => (
+              <SubmissionGroup key={key} groupKey={key} records={recs} defaultOpen={true} />
+            ))}
+          </div>
+        )}
+
+        {/* Footer count */}
+        {!loading && records.length > 0 && (
+          <p className="text-xs text-primary-400 text-right">
+            {records.length} total record{records.length !== 1 ? 's' : ''} across {groups?.length} batch{groups?.length !== 1 ? 'es' : ''}
+          </p>
+        )}
+      </motion.div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ADMIN VIEW — flat table (unchanged)
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary-800">Participants</h1>
@@ -69,131 +302,78 @@ export default function Participants() {
         </Link>
       </div>
 
-      {/* Filters bar */}
       <div className="card p-4">
         <div className="flex flex-col sm:flex-row gap-3">
-          <form onSubmit={handleSearch} className="flex-1 relative">
+          <div className="flex-1 relative">
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
             <input
               type="text"
               placeholder="Search by name, company, or department..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={e => setSearch(e.target.value)}
               className="input-field pl-10"
             />
-          </form>
+          </div>
           <div className="relative">
             <HiOutlineFilter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={e => setFilterType(e.target.value)}
               className="input-field pl-10 pr-8 appearance-none cursor-pointer min-w-[180px]"
             >
               <option value="">All Training Types</option>
-              {trainingTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
+              {TRAINING_TYPES.map(t => <option key={t.value} value={t.value}>{t.value} – {t.label}</option>)}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-primary-50 border-b border-primary-200">
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">
-                  Participant Name
-                </th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">
-                  Company
-                </th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">
-                  Department
-                </th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">
-                  Type of Training
-                </th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">
-                  Training Date
-                </th>
-                <th className="text-right text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">
-                  Actions
-                </th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Participant Name</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Company</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Department</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Type of Training</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Training Date</th>
+                <th className="text-right text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex items-center justify-center gap-2 text-primary-400">
-                      <div className="w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
-                      <span className="text-sm">Loading records...</span>
-                    </div>
-                  </td>
-                </tr>
+                <tr><td colSpan={6} className="px-6 py-12 text-center">
+                  <div className="flex items-center justify-center gap-2 text-primary-400">
+                    <div className="w-5 h-5 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
+                    <span className="text-sm">Loading records…</span>
+                  </div>
+                </td></tr>
               ) : records.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-primary-400">
-                    No records found.
-                  </td>
-                </tr>
+                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-primary-400">No records found.</td></tr>
               ) : (
-                records.map((record, idx) => (
-                  <tr
-                    key={record.id}
-                    className="border-b border-primary-100 last:border-0 hover:bg-primary-50/50 transition-colors"
-                  >
+                records.map(record => (
+                  <tr key={record.id} className="border-b border-primary-100 last:border-0 hover:bg-primary-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-200 flex items-center justify-center">
-                          <span className="text-xs font-semibold text-primary-600">
-                            {record.participant_name.split(' ').map(n => n[0]).join('')}
-                          </span>
+                          <span className="text-xs font-semibold text-primary-600">{initials(record.participant_name)}</span>
                         </div>
-                        <span className="text-sm font-medium text-primary-800">
-                          {record.participant_name}
-                        </span>
+                        <span className="text-sm font-medium text-primary-800">{record.participant_name}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-primary-600">{record.company}</td>
                     <td className="px-6 py-4 text-sm text-primary-600">{record.department}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          record.training_type === 'Recurrent'
-                            ? 'bg-violet-100 text-violet-700'
-                            : record.training_type === 'Human Factors'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
-                      >
-                        {record.training_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-primary-500">
-                      {new Date(record.training_date).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
+                    <td className="px-6 py-4">{typeBadge(record.training_type)}</td>
+                    <td className="px-6 py-4 text-sm text-primary-500">{fmtDate(record.training_date)}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to={`/admin/participants/edit/${record.id}`}
-                          className="p-1.5 rounded-lg hover:bg-primary-100 transition-colors text-primary-400 hover:text-primary-600"
-                          title="Edit"
-                        >
+                        <Link to={`/admin/participants/edit/${record.id}`}
+                          className="p-1.5 rounded-lg hover:bg-primary-100 transition-colors text-primary-400 hover:text-primary-600" title="Edit">
                           <HiOutlinePencil className="w-4 h-4" />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(record.id, record.participant_name)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-primary-400 hover:text-red-500"
-                          title="Delete"
-                        >
+                        <button onClick={() => handleDelete(record.id, record.participant_name)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-primary-400 hover:text-red-500" title="Delete">
                           <HiOutlineTrash className="w-4 h-4" />
                         </button>
                       </div>
@@ -204,13 +384,9 @@ export default function Participants() {
             </tbody>
           </table>
         </div>
-
-        {/* Footer */}
         {records.length > 0 && (
           <div className="px-6 py-3 bg-primary-50/50 border-t border-primary-200">
-            <p className="text-xs text-primary-400">
-              Showing {records.length} record{records.length !== 1 ? 's' : ''}
-            </p>
+            <p className="text-xs text-primary-400">Showing {records.length} record{records.length !== 1 ? 's' : ''}</p>
           </div>
         )}
       </div>

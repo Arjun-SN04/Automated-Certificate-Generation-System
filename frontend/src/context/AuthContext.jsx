@@ -10,6 +10,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
+      // Decode role from JWT payload (no verify — just read claims)
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Pre-set role from token so UI renders correctly before /me resolves
+        if (payload?.role) {
+          setAdmin((prev) => prev ? prev : { role: payload.role });
+        }
+      } catch { /* ignore decode errors */ }
+
       getMe()
         .then((res) => setAdmin(res.data))
         .catch(() => {
@@ -37,8 +46,11 @@ export function AuthProvider({ children }) {
     setAdmin(null);
   };
 
+  const isAdmin   = admin?.role === 'admin' || admin?.role === 'Administrator';
+  const isAirline = admin?.role === 'airline';
+
   return (
-    <AuthContext.Provider value={{ admin, loading, loginAdmin, updateAdmin, logout }}>
+    <AuthContext.Provider value={{ admin, loading, loginAdmin, updateAdmin, logout, isAdmin, isAirline }}>
       {children}
     </AuthContext.Provider>
   );
