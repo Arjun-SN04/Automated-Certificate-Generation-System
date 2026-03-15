@@ -485,6 +485,48 @@ export default function Airlines() {
     finally { setDownloadingId(null); }
   };
 
+  const [checkedAirlines, setCheckedAirlines] = useState(new Set());
+
+  const toggleAirline = (airlineName) => {
+    setCheckedAirlines(prev => {
+      const n = new Set(prev);
+      n.has(airlineName) ? n.delete(airlineName) : n.add(airlineName);
+      return n;
+    });
+  };
+
+  const allAirlinesChecked = data.length > 0 && data.every(({ airline }) => checkedAirlines.has(airline.airlineName));
+  const toggleAllAirlines = () => {
+    if (allAirlinesChecked) setCheckedAirlines(new Set());
+    else setCheckedAirlines(new Set(data.map(({ airline }) => airline.airlineName)));
+  };
+
+  const [deletingAirlines, setDeletingAirlines] = useState(false);
+
+  const handleDeleteSelectedAirlines = async () => {
+    if (checkedAirlines.size === 0) { toast.error('Select at least one airline'); return; }
+    if (!window.confirm(`Delete ALL data for ${checkedAirlines.size} selected airline${checkedAirlines.size > 1 ? 's' : ''}?\n\nThis will remove all participant records. This cannot be undone.`)) return;
+    setDeletingAirlines(true);
+    const deleted = new Set();
+    let fail = 0;
+    for (const name of checkedAirlines) {
+      try { await deleteAirlineData(name); deleted.add(name); } catch { fail++; }
+    }
+    setDeletingAirlines(false);
+    // Remove deleted airlines from local state immediately — no re-fetch flicker
+    setData(prev => prev.filter(d => !deleted.has(d.airline.airlineName)));
+    setCheckedAirlines(new Set());
+    setChecked(prev => {
+      const n = new Set(prev);
+      data.forEach(({ airline, participants }) => {
+        if (deleted.has(airline.airlineName)) participants.forEach(p => n.delete(p.id || p._id));
+      });
+      return n;
+    });
+    if (fail === 0) toast.success(`${deleted.size} airline${deleted.size > 1 ? 's' : ''} deleted`);
+    else toast.error(`${deleted.size} deleted, ${fail} failed`);
+  };
+
   const [deletingSelected, setDeletingSelected] = useState(false);
   const handleDeleteSelected = async () => {
     if (checked.size === 0) { toast.error('Please select at least one participant'); return; }
@@ -500,17 +542,19 @@ export default function Airlines() {
   };
 
   const handleDeleteAirlineData = async (airlineName, participantCount) => {
-    if (!window.confirm(`Delete ALL ${participantCount} participant record(s) for "${airlineName}"?\n\nThis action cannot be undone.`)) return;
+    if (!window.confirm(`Delete ALL data for "${airlineName}"?\n\nThis will remove all ${participantCount} participant record(s). This cannot be undone.`)) return;
     try {
       const res = await deleteAirlineData(airlineName);
-      toast.success(res.data.message || `All data for "${airlineName}" deleted`);
+      toast.success(res.data.message || `"${airlineName}" deleted`);
+      // Remove from local state immediately — no flicker
+      setData(prev => prev.filter(d => d.airline.airlineName !== airlineName));
       setChecked(prev => {
         const n = new Set(prev);
         data.find(d => d.airline.airlineName === airlineName)?.participants.forEach(p => n.delete(p.id || p._id));
         return n;
       });
-      fetchData();
-    } catch (err) { toast.error(err.response?.data?.error || 'Failed to delete airline data'); }
+      setCheckedAirlines(prev => { const n = new Set(prev); n.delete(airlineName); return n; });
+    } catch (err) { toast.error(err.response?.data?.error || 'Failed to delete airline'); }
   };
 
   const filtered = data.map(({ airline, participants }) => ({
@@ -524,7 +568,8 @@ export default function Airlines() {
       const typeMatch = !filterType || p.training_type === filterType;
       return nameMatch && typeMatch;
     }),
-  })).filter(({ participants }) => participants.length > 0 || (!search && !filterType));
+  // Always hide airlines with 0 participants (catches post-delete state instantly)
+  })).filter(({ participants }) => participants.length > 0);
 
   const totalParticipants = allParticipants.length;
   const totalAirlines     = data.length;
@@ -716,6 +761,52 @@ export default function Airlines() {
         </div>
       </div>
 
+      {/* Airline-level select + delete bar */}
+      {!loading && data.length > 0 && (
+        <div className="card p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div
+              onClick={toggleAllAirlines}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                allAirlinesChecked ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'
+              }`}
+            >
+              {allAirlinesChecked && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {!allAirlinesChecked && checkedAirlines.size > 0 && <div className="w-2 h-0.5 bg-red-400 rounded" />}
+            </div>
+            <span className="text-sm font-medium text-primary-700">
+              {allAirlinesChecked ? 'Deselect All Airlines' : 'Select All Airlines'}
+            </span>
+          </label>
+          <div className="flex items-center gap-3">
+            {checkedAirlines.size > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 text-xs font-semibold">
+                <HiOutlineOfficeBuilding className="w-3.5 h-3.5" />
+                {checkedAirlines.size} airline{checkedAirlines.size > 1 ? 's' : ''} selected
+              </span>
+            )}
+            <button
+              onClick={handleDeleteSelectedAirlines}
+              disabled={checkedAirlines.size === 0 || deletingAirlines}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+                checkedAirlines.size > 0 && !deletingAirlines
+                  ? 'border-red-300 bg-red-600 text-white hover:bg-red-700 shadow-sm'
+                  : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'
+              }`}
+            >
+              {deletingAirlines
+                ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : <HiOutlineTrash className="w-4 h-4" />}
+              {deletingAirlines ? 'Deleting...' : checkedAirlines.size > 0 ? `Delete ${checkedAirlines.size} Airline${checkedAirlines.size > 1 ? 's' : ''}` : 'Delete Selected Airlines'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center justify-center py-20">
           <div className="w-6 h-6 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
@@ -735,12 +826,25 @@ export default function Airlines() {
         return (
           <div key={airline.airlineName} className="card overflow-hidden">
             <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 flex-wrap gap-2">
-              <button onClick={() => toggle(airline.airlineName)} className="flex items-center gap-4 flex-1 text-left">
+              {/* Per-airline checkbox */}
+              <div
+                onClick={e => { e.stopPropagation(); toggleAirline(airline.airlineName); }}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer flex-shrink-0 transition-colors ${
+                  checkedAirlines.has(airline.airlineName) ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'
+                }`}
+              >
+                {checkedAirlines.has(airline.airlineName) && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <button onClick={() => toggle(airline.airlineName)} className="flex items-center gap-4 flex-1 text-left min-w-0">
                 <div className="w-11 h-11 rounded-xl bg-primary-800 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-sm font-bold">{mkInitials(airline.airlineName)}</span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <p className="text-base font-bold text-primary-800">{airline.airlineName}</p>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-600 uppercase tracking-wider">
                       <HiOutlineUsers className="w-3 h-3" />
@@ -755,7 +859,7 @@ export default function Airlines() {
                   )}
                 </div>
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                 {expanded[airline.airlineName] && participants.length > 0 && (
                   <>
                     <button
@@ -784,7 +888,16 @@ export default function Airlines() {
                     </label>
                   </>
                 )}
-                <button onClick={() => toggle(airline.airlineName)} className="p-1">
+                {/* Delete entire airline button */}
+                <button
+                  onClick={() => handleDeleteAirlineData(airline.airlineName, participants.length)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors border-red-300 text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400"
+                  title={`Delete all data for ${airline.airlineName}`}
+                >
+                  <HiOutlineTrash className="w-3.5 h-3.5" />
+                  Delete Airline
+                </button>
+                <button onClick={() => toggle(airline.airlineName)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
                   {expanded[airline.airlineName] ? <HiOutlineChevronUp className="w-5 h-5 text-primary-400" /> : <HiOutlineChevronDown className="w-5 h-5 text-primary-400" />}
                 </button>
               </div>
