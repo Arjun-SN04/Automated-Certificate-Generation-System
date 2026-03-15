@@ -37,15 +37,20 @@ export const bulkCreateParticipants  = (rows)   => api.post('/participants/bulk'
 export const updateParticipant  = (id, data) => api.put(`/participants/${id}`, data);
 export const deleteParticipant      = (id)          => api.delete(`/participants/${id}`);
 export const deleteAirlineData      = (airlineName) => api.delete(`/participants/airline/${encodeURIComponent(airlineName)}`);
+export const updateCertSequence     = (id, cert_sequence) => api.patch(`/participants/${id}/cert-sequence`, { cert_sequence });
+export const updateFullCertId       = (id, cert_sequence, cert_year) => api.patch(`/participants/${id}/full-cert-id`, { cert_sequence, cert_year });
+export const getCertCounters        = () => api.get('/certificates/counters');
+export const resetCertCounter       = (training_type) => api.post('/certificates/counters/reset', { training_type });
+export const resetAllCertCounters   = () => api.post('/certificates/counters/reset', { all: true });
 
 // ── Certificates ────────────────────────────────────────────────────────────
 export const getModulesList     = ()     => api.get('/certificates/modules');
 export const generateCertificateUrl = (id) => `${API_BASE}/certificates/generate/${id}`;
 export const previewCertificateUrl  = (id) => `${API_BASE}/certificates/preview/${id}`;
-export const generateCertificateWithModules = (id, modules) =>
-  api.post(`/certificates/generate/${id}`, { modules }, { responseType: 'blob' });
+export const generateCertificateWithModules = (id, modules, variant = 'default') =>
+  api.post(`/certificates/generate/${id}`, { modules, templateVariant: variant }, { responseType: 'blob' });
 // Generate cert and return blob (no auto-download — caller decides what to do)
-export const generateCertificateBlob = (id) =>
-  api.get(`/certificates/generate/${id}`, { responseType: 'blob' });
+export const generateCertificateBlob = (id, variant = 'default') =>
+  api.get(`/certificates/generate/${id}`, { params: { variant }, responseType: 'blob' });
 
 export default api;

@@ -32,13 +32,23 @@ router.get('/generate/:id', async (req, res) => {
     const participant = await Participant.findById(req.params.id);
     if (!participant) return res.status(404).json({ error: 'Participant not found' });
 
-    // ── Assign cert_sequence NOW (first generate only) — never on preview ──────
+    // Assign cert_sequence on first generate, save templateVariant too
+    const incomingVariant = req.query.variant || 'default';
+    let needsSave = false;
     if (!participant.cert_sequence) {
       participant.cert_sequence = await reserveCertSequence(participant.training_type);
-      await participant.save();
+      needsSave = true;
     }
+    if (participant.templateVariant !== incomingVariant) {
+      participant.templateVariant = incomingVariant;
+      needsSave = true;
+    }
+    if (needsSave) await participant.save();
 
-    const pdfBuffer = await generateCertificate(participant.toObject());
+    const data = participant.toObject();
+    data.templateVariant = incomingVariant;
+
+    const pdfBuffer = await generateCertificate(data);
 
     const sanitizedName = participant.participant_name.replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Certificate_${sanitizedName}_${participant.training_type.replace(/\s+/g, '_')}.pdf`;
@@ -64,6 +74,9 @@ router.get('/preview/:id', async (req, res) => {
     if (req.query.modules) {
       data.modules = req.query.modules;
     }
+
+    // Use saved templateVariant (set when cert was generated), or query param override
+    data.templateVariant = req.query.variant || participant.templateVariant || 'default';
 
     const pdfBuffer = await generateCertificate(data);
 
@@ -98,10 +111,17 @@ router.post('/generate/:id', async (req, res) => {
       participant.modules = modules;
     }
 
-    // Single save — persists both cert_sequence and modules atomically
+    // Save templateVariant too
+    const postVariant = req.body.templateVariant || req.query.variant || 'default';
+    participant.templateVariant = postVariant;
+
+    // Single save — persists cert_sequence, modules, and templateVariant atomically
     await participant.save();
 
-    const pdfBuffer = await generateCertificate(participant.toObject());
+    const data = participant.toObject();
+    data.templateVariant = postVariant;
+
+    const pdfBuffer = await generateCertificate(data);
 
     const sanitizedName = participant.participant_name.replace(/[^a-zA-Z0-9]/g, '_');
     const filename = `Certificate_${sanitizedName}_${participant.training_type.replace(/\s+/g, '_')}.pdf`;
@@ -126,6 +146,28 @@ router.get('/counters', async (req, res) => {
     const { CertCounter } = require('../models/CertCounter');
     const counters = await CertCounter.find({}).sort({ training_type: 1 }).lean();
     res.json(counters);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /counters/reset — reset counter for one or all training types ───────────
+router.post('/counters/reset', async (req, res) => {
+  try {
+    const { CertCounter } = require('../models/CertCounter');
+    if (req.body.all) {
+      await CertCounter.updateMany({}, { $set: { seq: 0 } });
+      return res.json({ message: 'All counters reset to 0' });
+    }
+    if (!req.body.training_type) {
+      return res.status(400).json({ error: 'training_type or all required' });
+    }
+    await CertCounter.findOneAndUpdate(
+      { training_type: req.body.training_type },
+      { $set: { seq: 0 } },
+      { upsert: true }
+    );
+    res.json({ message: `Counter for ${req.body.training_type} reset to 0` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

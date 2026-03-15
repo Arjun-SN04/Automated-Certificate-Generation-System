@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import logoImg from '../assets/logo.png';
 import {
   HiOutlineHome,
   HiOutlineUsers,
@@ -38,13 +39,10 @@ export default function Sidebar({ open, setOpen }) {
     >
       {/* Logo area */}
       <div className="flex items-center h-16 px-4 border-b border-primary-200">
-        <button onClick={() => navigate('/')} className="flex items-center gap-3 cursor-pointer">
-          <div className="w-10 h-10 rounded-xl bg-primary-800 flex items-center justify-center flex-shrink-0 hover:bg-primary-900 transition-colors">
-            <span className="text-white font-bold text-sm">IF</span>
-          </div>
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 cursor-pointer">
+          <img src={logoImg} alt="IFOA Logo" className="h-9 w-auto object-contain flex-shrink-0" />
           {open && (
             <div className="animate-fade-in text-left">
-              <h1 className="text-sm font-bold text-primary-800 leading-tight">IFOA</h1>
               <p className="text-[10px] text-primary-400 font-medium">
                 {isAdmin ? 'Certificate System' : 'Airline Portal'}
               </p>
@@ -91,10 +89,11 @@ export default function Sidebar({ open, setOpen }) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
                 isActive
-                  ? 'bg-primary-800 text-white shadow-md'
+                  ? 'bg-primary-50 shadow-sm font-semibold'
                   : 'text-primary-500 hover:bg-primary-100 hover:text-primary-800'
               }`
             }
+            style={({ isActive }) => isActive ? { color: '#0000ff', borderLeft: '3px solid #0000ff' } : {}}
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
             {open && (
@@ -109,9 +108,9 @@ export default function Sidebar({ open, setOpen }) {
       {/* Bottom section */}
       {open && (
         <div className="p-4 border-t border-primary-200 animate-fade-in">
-          <div className="bg-primary-50 rounded-lg p-3">
-            <p className="text-xs font-semibold text-primary-700">IFOA v1.0</p>
-            <p className="text-[10px] text-primary-400 mt-0.5">
+          <div className="rounded-lg p-3" style={{ background: '#f0f0ff' }}>
+            <p className="text-xs font-semibold" style={{ color: '#0000ff' }}>IFOA v1.0</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#6666cc' }}>
               {isAdmin ? 'Administrator' : 'Airline User'}
             </p>
           </div>

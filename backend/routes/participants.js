@@ -271,6 +271,29 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ─── PATCH cert_sequence only (admin only) ──────────────────────────────────
+router.patch('/:id/cert-sequence', async (req, res) => {
+  try {
+    if (req.admin.role === 'airline') {
+      return res.status(403).json({ error: 'Only admins can update certificate numbers.' });
+    }
+    const { cert_sequence } = req.body;
+    if (cert_sequence === undefined || cert_sequence === null || String(cert_sequence).trim() === '') {
+      return res.status(400).json({ error: 'cert_sequence is required.' });
+    }
+    const doc = await Participant.findByIdAndUpdate(
+      req.params.id,
+      { cert_sequence: Number(cert_sequence) },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ error: 'Participant not found' });
+    res.json(doc);
+  } catch (err) {
+    console.error('PATCH cert-sequence error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── DELETE all participants for an airline (admin only) ──────────────────────
 // IMPORTANT: This route must be defined BEFORE /:id to avoid Express matching
 // "airline" as an :id parameter.
@@ -306,6 +329,33 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Participant deleted successfully' });
   } catch (err) {
     console.error('DELETE /participants/:id error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PATCH /:id/full-cert-id — update full cert number + year (admin only) ─────────
+router.patch('/:id/full-cert-id', async (req, res) => {
+  try {
+    if (req.admin.role === 'airline') return res.status(403).json({ error: 'Admins only' });
+    const { cert_sequence, cert_year } = req.body;
+    const seq  = Number(cert_sequence);
+    const year = Number(cert_year);
+    if (!seq  || seq  <= 0)                  return res.status(400).json({ error: 'Invalid sequence' });
+    if (!year || year < 2000 || year > 2100) return res.status(400).json({ error: 'Invalid year' });
+
+    const participant = await Participant.findById(req.params.id);
+    if (!participant) return res.status(404).json({ error: 'Participant not found' });
+
+    // Check duplicate: same training_type + same seq, different participant
+    const dup = await Participant.findOne({ _id: { $ne: req.params.id }, training_type: participant.training_type, cert_sequence: seq });
+    if (dup) return res.status(409).json({ error: `This number is already used by ${dup.participant_name}` });
+
+    participant.cert_sequence      = seq;
+    participant.cert_year_override = year;   // saved on schema via mixed/strict:false
+    await Participant.findByIdAndUpdate(req.params.id, { cert_sequence: seq, cert_year_override: year });
+    res.json({ message: 'Updated', cert_sequence: seq, cert_year: year });
+  } catch (err) {
+    console.error('PATCH full-cert-id error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

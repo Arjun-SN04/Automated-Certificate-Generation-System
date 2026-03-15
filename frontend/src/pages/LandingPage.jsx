@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import {
   HiOutlineDocumentText,
   HiOutlineUsers,
@@ -10,6 +11,8 @@ import {
   HiOutlineGlobe,
 } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
+import { getParticipants } from '../api';
+import logoImg from '../assets/logo.png';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 40 },
@@ -69,15 +72,26 @@ const features = [
   },
 ];
 
-const stats = [
-  { value: '3', label: 'Certificate Types' },
-  { value: '12', label: 'Training Modules' },
-  { value: 'EASA', label: 'Compliance' },
-  { value: 'PDF', label: 'Export Format' },
-];
-
 export default function LandingPage() {
   const { admin } = useAuth();
+  const [certTypeCount, setCertTypeCount] = useState('…');
+
+  useEffect(() => {
+    // Fetch distinct training types from DB to show live count
+    getParticipants()
+      .then(res => {
+        const types = new Set((res.data || []).map(p => p.training_type).filter(Boolean));
+        setCertTypeCount(types.size > 0 ? String(types.size) : '8');
+      })
+      .catch(() => setCertTypeCount('8'));
+  }, []);
+
+  const stats = [
+    { value: certTypeCount, label: 'Certificate Types' },
+    { value: '12', label: 'Training Modules' },
+    { value: 'Regulation', label: 'Compliance' },
+    { value: 'PDF', label: 'Export Format' },
+  ];
 
   return (
     <div className="min-h-screen bg-white overflow-hidden">
@@ -90,13 +104,7 @@ export default function LandingPage() {
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-800 to-primary-900 flex items-center justify-center shadow-lg shadow-primary-800/20">
-              <span className="text-white font-bold text-sm">IF</span>
-            </div>
-            <div>
-              <span className="text-base font-bold text-primary-800 tracking-tight">IFOA</span>
-              <span className="text-[10px] text-primary-400 block -mt-1 font-medium">Flight Operations Academy</span>
-            </div>
+            <img src={logoImg} alt="IFOA Logo" className="h-10 w-auto object-contain" />
           </div>
           <div className="flex items-center gap-3">
             {admin ? (
@@ -111,7 +119,7 @@ export default function LandingPage() {
               <>
                 <Link
                   to="/login"
-                  className="px-5 py-2.5 text-primary-700 text-sm font-semibold hover:text-primary-900 transition-colors"
+                  className="px-5 py-2.5 text-sm font-semibold transition-colors" style={{ color: '#0000ff' }}
                 >
                   Sign In
                 </Link>
@@ -132,9 +140,9 @@ export default function LandingPage() {
       <section className="relative pt-32 pb-20 px-6">
         {/* Background decorations */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-accent-200/30 to-accent-100/20 rounded-full blur-3xl" />
-          <div className="absolute top-20 -left-20 w-72 h-72 bg-gradient-to-br from-blue-100/40 to-indigo-100/30 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-gradient-to-br from-emerald-100/30 to-teal-100/20 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(0,0,255,0.08) 0%, rgba(0,0,200,0.04) 100%)' }} />
+          <div className="absolute top-20 -left-20 w-72 h-72 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(0,0,255,0.06) 0%, rgba(100,100,255,0.03) 100%)' }} />
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(0,0,255,0.05) 0%, rgba(50,50,200,0.02) 100%)' }} />
         </div>
 
         <div className="max-w-7xl mx-auto relative">
@@ -145,18 +153,18 @@ export default function LandingPage() {
             className="text-center max-w-4xl mx-auto"
           >
             <motion.div variants={fadeUp} className="mb-6">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent-50 border border-accent-200 text-accent-700 text-xs font-semibold tracking-wide">
-                <span className="w-1.5 h-1.5 bg-accent-500 rounded-full animate-pulse" />
-                EASA Certified System
+              <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold tracking-widest uppercase" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #ffffff 100%)', border: '1.5px solid #000021', color: '#0000ff', letterSpacing: '0.12em' }}>
+                <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#0000ff' }} />
+                 <span className='text-black'>Training </span> Management System
               </span>
             </motion.div>
 
             <motion.h1
               variants={fadeUp}
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-primary-800 leading-[1.1] tracking-tight"
+              className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight"
             >
-              Automated Certificate
-              <span className="block mt-2 bg-gradient-to-r from-accent-600 via-accent-500 to-amber-500 bg-clip-text text-transparent">
+              <span style={{ color: '#000021' }}>Automated Certificate</span>
+              <span className="block mt-2" style={{ color: '#0000ff' }}>
                 Generation System
               </span>
             </motion.h1>
@@ -190,7 +198,7 @@ export default function LandingPage() {
                   </Link>
                   <Link
                     to="/login"
-                    className="px-8 py-3.5 border-2 border-primary-200 text-primary-700 rounded-2xl text-sm font-semibold hover:border-primary-300 hover:bg-primary-50 transition-all duration-300"
+                    className="px-8 py-3.5 rounded-2xl text-sm font-semibold transition-all duration-300" style={{ border: '2px solid #0000ff', color: '#0000ff', background: 'transparent' }}
                   >
                     Sign In
                   </Link>
@@ -213,10 +221,10 @@ export default function LandingPage() {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 1 + i * 0.1, duration: 0.4 }}
-                  className="text-center p-4 rounded-2xl bg-white border border-primary-100 shadow-sm hover:shadow-md transition-shadow"
+                  className="text-center p-4 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow" style={{ border: '1px solid #c0c0ff' }}
                 >
-                  <p className="text-2xl font-bold text-primary-800">{stat.value}</p>
-                  <p className="text-xs text-primary-400 font-medium mt-1">{stat.label}</p>
+                  <p className="text-2xl font-bold" style={{ color: '#000021' }}>{stat.value}</p>
+                  <p className="text-xs font-medium mt-1" style={{ color: '#000021' }}>{stat.label}</p>
                 </motion.div>
               ))}
             </div>
@@ -225,7 +233,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="py-24 px-6 bg-gradient-to-b from-primary-50/50 to-white">
+      <section className="py-24 px-6" style={{ background: 'linear-gradient(180deg, #f0f0ff 0%, #ffffff 100%)' }}>
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -234,7 +242,7 @@ export default function LandingPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <span className="inline-block px-3 py-1 rounded-full bg-primary-100 text-primary-600 text-xs font-semibold tracking-wider uppercase mb-4">
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase mb-4" style={{ background: '#e8e8ff', color: '#0000ff' }}>
               Features
             </span>
             <h2 className="text-3xl md:text-4xl font-bold text-primary-800">
@@ -255,11 +263,11 @@ export default function LandingPage() {
                 transition={{ delay: i * 0.1, duration: 0.5 }}
                 className="group relative p-6 rounded-2xl bg-white border border-primary-100 hover:border-primary-200 shadow-sm hover:shadow-lg transition-all duration-300"
               >
-                <div className={`w-12 h-12 rounded-xl ${feature.bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className="w-6 h-6 text-primary-600" />
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300" style={{ background: '#e8e8ff' }}>
+                  <feature.icon className="w-6 h-6" style={{ color: '#0000ff' }} />
                 </div>
-                <h3 className="text-base font-bold text-primary-800 mb-2">{feature.title}</h3>
-                <p className="text-sm text-primary-500 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-base font-bold mb-2" style={{ color: '#000021' }}>{feature.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: '#4444aa' }}>{feature.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -274,7 +282,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-800 via-primary-900 to-primary-800 p-12 md:p-16 text-center"
+            className="relative overflow-hidden rounded-3xl p-12 md:p-16 text-center" style={{ background: 'linear-gradient(135deg, #000021 0%, #000021 40%, #000021 100%)' }}
           >
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className="absolute -top-20 -right-20 w-72 h-72 bg-accent-500/10 rounded-full blur-3xl" />
@@ -290,7 +298,7 @@ export default function LandingPage() {
               </p>
               <Link
                 to={admin ? '/admin' : '/signup'}
-                className="group inline-flex items-center gap-2 px-8 py-3.5 bg-white text-primary-800 rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl transition-all duration-300"
+                className="group inline-flex items-center gap-2 px-8 py-3.5 bg-white rounded-2xl text-sm font-bold shadow-xl hover:shadow-2xl transition-all duration-300" style={{ color: '#0000ff' }}
               >
                 {admin ? 'Open Dashboard' : 'Get Started'}
                 <HiOutlineArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -304,14 +312,11 @@ export default function LandingPage() {
       <footer className="border-t border-primary-100 py-8 px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary-800 flex items-center justify-center">
-              <span className="text-white font-bold text-[10px]">IF</span>
-            </div>
-            <span className="text-sm font-semibold text-primary-600">IFOA Certificate System</span>
+            <img src={logoImg} alt="IFOA Logo" className="h-8 w-auto object-contain" />
+            <span className="text-sm font-semibold" style={{ color: '#0000ff' }}>IFOA Certificate System</span>
           </div>
           <p className="text-xs text-primary-400">
             &copy; {new Date().getFullYear()} International Flight Operations Academy. All rights reserved. 
-           <p> Made By Arjun</p>
           </p>
         </div>
       </footer>

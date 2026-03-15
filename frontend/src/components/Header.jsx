@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import logoImg from '../assets/logo.png';
 import {
   HiOutlineBell,
   HiOutlineSearch,
@@ -282,7 +283,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
             onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-primary-100 transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-primary-800 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#000021] flex items-center justify-center">
               <span className="text-white text-xs font-semibold">{initials}</span>
             </div>
             <div className="hidden md:block text-left">

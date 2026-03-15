@@ -2,7 +2,24 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const mongoose = require('mongoose');
+
+// ── Auto-fix: ensure Dispatch_graduate.pdf and HumanFactors.pdf exist ──────────
+// If they were deleted or are missing, copy from recurrent (same green design)
+(function ensureGreenTemplates() {
+  const root = path.join(__dirname, '..');
+  const src  = path.join(root, 'recurrent_training_with_modules.pdf');
+  const targets = ['Dispatch_graduate.pdf', 'HumanFactors.pdf'];
+  if (!fs.existsSync(src)) return;
+  targets.forEach(name => {
+    const dst = path.join(root, name);
+    if (!fs.existsSync(dst)) {
+      fs.copyFileSync(src, dst);
+      console.log(`[startup] Created missing template: ${name}`);
+    }
+  });
+})();
 
 // Clear any cached models so nodemon restarts start completely fresh
 // This prevents stale pre-save hook stacking across hot reloads

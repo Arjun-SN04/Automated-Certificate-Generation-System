@@ -24,9 +24,13 @@ const participantSchema = new mongoose.Schema(
     modules:       { type: String, default: null },
 
     // ── Certificate sequence number ────────────────────────────────────────────
-    // Stores the per-training-type sequential number used in the cert ID,
-    // e.g. FDI-00003-2025. Assigned once on creation, never changes.
     cert_sequence: { type: Number, default: null },
+
+    // ── Template variant ───────────────────────────────────────────────────────
+    // 'default' = IFOA green template, 'india' = IFOA INDIA orange template
+    // Saved on first generation so preview/download always uses the same template.
+    templateVariant: { type: String, default: 'default', enum: ['default', 'india'] },
+    cert_year_override: { type: Number, default: null }, // override year in cert ID
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
