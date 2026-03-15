@@ -62,7 +62,7 @@ function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-4 px-5 py-4 bg-primary-50 hover:bg-primary-100/60 transition-colors text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 transition-colors text-left" style={{ background: '#eff6ff' }} onMouseEnter={e => e.currentTarget.style.background='#dbeafe'} onMouseLeave={e => e.currentTarget.style.background='#eff6ff'}
       >
         {/* Chevron */}
         <span className="text-primary-400 flex-shrink-0">
@@ -141,7 +141,7 @@ function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
                   </span>
 
                   {/* Locked badge */}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary-100 text-primary-500">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#0000ff' }}>
                     🔒 Locked
                   </span>
                 </div>
@@ -330,15 +330,15 @@ export default function Participants() {
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="bg-primary-50 border-b border-primary-200">
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Participant Name</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Company</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Department</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Type of Training</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Training Date</th>
-                <th className="text-right text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-6 py-3">Actions</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 sm:px-6 py-3">Participant Name</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 sm:px-6 py-3 hidden sm:table-cell">Company</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 sm:px-6 py-3 hidden md:table-cell">Department</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 sm:px-6 py-3">Training</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 sm:px-6 py-3 hidden sm:table-cell">Date</th>
+                <th className="text-right text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 sm:px-6 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -354,19 +354,19 @@ export default function Participants() {
               ) : (
                 records.map(record => (
                   <tr key={record.id} className="border-b border-primary-100 last:border-0 hover:bg-primary-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary-200 flex items-center justify-center">
+                    <td className="px-4 sm:px-6 py-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
                           <span className="text-xs font-semibold text-primary-600">{initials(record.participant_name)}</span>
                         </div>
-                        <span className="text-sm font-medium text-primary-800">{record.participant_name}</span>
+                        <span className="text-sm font-medium text-primary-800 truncate max-w-[100px] sm:max-w-none">{record.participant_name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-primary-600">{record.company}</td>
-                    <td className="px-6 py-4 text-sm text-primary-600">{record.department}</td>
-                    <td className="px-6 py-4">{typeBadge(record.training_type)}</td>
-                    <td className="px-6 py-4 text-sm text-primary-500">{fmtDate(record.training_date)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4 text-sm text-primary-600 hidden sm:table-cell">{record.company}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-primary-600 hidden md:table-cell">{record.department}</td>
+                    <td className="px-4 sm:px-6 py-4">{typeBadge(record.training_type)}</td>
+                    <td className="px-4 sm:px-6 py-4 text-sm text-primary-500 hidden sm:table-cell">{fmtDate(record.training_date)}</td>
+                    <td className="px-4 sm:px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <Link to={`/admin/participants/edit/${record.id}`}
                           className="p-1.5 rounded-lg hover:bg-primary-100 transition-colors text-primary-400 hover:text-primary-600" title="Edit">

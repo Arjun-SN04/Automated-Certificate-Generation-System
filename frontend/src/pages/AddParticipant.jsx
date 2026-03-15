@@ -88,7 +88,7 @@ function SingleForm({ isAdmin, airlineName, onSuccess }) {
   return (
     <form onSubmit={handleSubmit} className="card p-6 space-y-5">
       {/* First + Last name */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">First Name *</label>
           <input name="first_name" value={form.first_name} onChange={handleChange} className="input-field" placeholder="e.g. Ahmed" />
@@ -100,7 +100,7 @@ function SingleForm({ isAdmin, airlineName, onSuccess }) {
       </div>
 
       {/* Airline + Department */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Airline Name *</label>
           <input
@@ -129,7 +129,7 @@ function SingleForm({ isAdmin, airlineName, onSuccess }) {
       </div>
 
       {/* Start Date + End Date */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Start Date *</label>
           <input type="date" name="training_date" value={form.training_date} onChange={handleChange} className="input-field" />
@@ -188,9 +188,9 @@ function SingleForm({ isAdmin, airlineName, onSuccess }) {
       )}
 
       {!isAdmin && (
-        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <span className="text-amber-500 text-sm mt-0.5">⚠</span>
-          <p className="text-xs text-amber-700">
+        <div className="flex items-start gap-2 p-3 rounded-lg border" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+          <span className="text-sm mt-0.5" style={{ color: '#0000ff' }}>ℹ</span>
+          <p className="text-xs" style={{ color: '#3b4f9e' }}>
             Once submitted, this record will be <strong>locked</strong>. Only IFOA administrators can edit or delete it.
           </p>
         </div>
@@ -217,7 +217,7 @@ function BulkRow({ row, idx, onChange, onRemove, result }) {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
+      className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 rounded-xl border transition-colors ${
         hasError   ? 'border-red-300 bg-red-50/40' :
         hasSuccess ? 'border-emerald-300 bg-emerald-50/40' :
         'border-primary-200 bg-white'
@@ -381,7 +381,7 @@ function BulkForm({ isAdmin, airlineName, onSuccess }) {
         )}
 
         {/* Department + Training Type */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Department *</label>
             <input value={shared.department} onChange={e => setSharedField('department', e.target.value)}
@@ -398,7 +398,7 @@ function BulkForm({ isAdmin, airlineName, onSuccess }) {
         </div>
 
         {/* Start + End Date */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Start Date *</label>
             <input type="date" value={shared.training_date} onChange={e => setSharedField('training_date', e.target.value)}
@@ -481,9 +481,9 @@ function BulkForm({ isAdmin, airlineName, onSuccess }) {
       </div>
 
       {!isAdmin && (
-        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <span className="text-amber-500 text-sm mt-0.5">⚠</span>
-          <p className="text-xs text-amber-700">
+        <div className="flex items-start gap-2 p-3 rounded-lg border" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+          <span className="text-sm mt-0.5" style={{ color: '#0000ff' }}>ℹ</span>
+          <p className="text-xs" style={{ color: '#3b4f9e' }}>
             Once submitted, records will be <strong>locked</strong>. Only IFOA administrators can edit or delete them.
           </p>
         </div>
@@ -523,7 +523,7 @@ export default function AddParticipant() {
 
   const TABS = [
     { val: 'single', label: 'Single',   Icon: HiOutlineUser },
-    { val: 'bulk',   label: 'Bulk Add', Icon: HiOutlineUserGroup },
+    { val: 'bulk',   label: 'Group Add', Icon: HiOutlineUserGroup },
   ];
 
   return (
@@ -533,7 +533,7 @@ export default function AddParticipant() {
         <HiOutlineArrowLeft className="w-4 h-4" /> Back
       </button>
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-primary-800">
             {isAdmin ? 'Add Participant' : 'New Enrollment'}
@@ -542,7 +542,7 @@ export default function AddParticipant() {
             {isAdmin ? 'Create one or multiple training records' : 'Submit training enrollments for your airline'}
           </p>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-primary-100 rounded-xl">
+        <div className="flex items-center gap-1 p-1 bg-primary-100 rounded-xl self-start sm:self-auto">
           {TABS.map(({ val, label, Icon }) => (
             <button key={val} type="button" onClick={() => setMode(val)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${

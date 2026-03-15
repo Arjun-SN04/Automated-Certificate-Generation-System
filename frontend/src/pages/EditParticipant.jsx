@@ -129,7 +129,7 @@ export default function EditParticipant() {
       <form onSubmit={handleSubmit} className="card p-6 space-y-5">
 
         {/* First + Last name */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">First Name *</label>
             <input name="first_name" value={form.first_name} onChange={handleChange}
@@ -143,7 +143,7 @@ export default function EditParticipant() {
         </div>
 
         {/* Airline + Department */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Airline Name *</label>
             <input name="company" value={form.company} onChange={handleChange}
@@ -169,7 +169,7 @@ export default function EditParticipant() {
         </div>
 
         {/* Start Date + End Date */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Start Date *</label>
             <input type="date" name="training_date" value={form.training_date}

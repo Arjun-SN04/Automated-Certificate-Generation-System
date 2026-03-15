@@ -69,8 +69,8 @@ export default function Profile() {
       </div>
 
       {/* Profile card */}
-      <div className="card p-8">
-        <div className="flex items-center gap-6">
+      <div className="card p-5 sm:p-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
           <div className="w-20 h-20 rounded-2xl bg-primary-800 flex items-center justify-center">
             <span className="text-white text-2xl font-bold">{initials}</span>
           </div>

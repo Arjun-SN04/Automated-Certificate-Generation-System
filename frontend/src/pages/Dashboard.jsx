@@ -73,7 +73,7 @@ export default function Dashboard() {
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
 
       {/* Welcome */}
-      <motion.div variants={item} className="flex items-center justify-between">
+      <motion.div variants={item} className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-primary-800">
             {isAdmin ? 'Welcome back' : `Welcome, ${admin?.airlineName || admin?.name || 'Airline'}`}
@@ -92,11 +92,11 @@ export default function Dashboard() {
 
       {/* Airline notice */}
       {!isAdmin && (
-        <motion.div variants={item} className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <HiOutlineLockClosed className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <motion.div variants={item} className="flex items-start gap-3 p-4 rounded-xl border" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+          <HiOutlineLockClosed className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#0000ff' }} />
           <div>
-            <p className="text-sm font-semibold text-amber-800">Submissions are locked after filing</p>
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="text-sm font-semibold" style={{ color: '#000021' }}>Submissions are locked after filing</p>
+            <p className="text-xs mt-0.5" style={{ color: '#3b4f9e' }}>
               Once you submit an enrollment, the record is locked. Only IFOA administrators can edit records or generate certificates.
             </p>
           </div>
@@ -104,7 +104,7 @@ export default function Dashboard() {
       )}
 
       {/* Stats */}
-      <motion.div variants={item} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${isAdmin ? 4 : 3} gap-4`}>
+      <motion.div variants={item} className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4`}>
         {statCards.map((card) => (
           <div key={card.key} className="card p-5">
             <div className="flex items-center justify-between">
@@ -182,7 +182,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Recent Records */}
-        <motion.div variants={item} className="card p-6 lg:col-span-2">
+        <motion.div variants={item} className="card p-4 sm:p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-primary-800">
               {isAdmin ? 'Recent Records' : 'My Recent Submissions'}
@@ -191,27 +191,27 @@ export default function Dashboard() {
               View All
             </Link>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-1">
+            <table className="w-full min-w-[400px]">
               <thead>
                 <tr className="border-b border-primary-200">
-                  <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3">Name</th>
-                  <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3">Airline</th>
-                  <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3">Training</th>
+                  <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3 pr-3">Name</th>
+                  <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3 pr-3 hidden sm:table-cell">Airline</th>
+                  <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3 pr-3">Training</th>
                   <th className="text-left text-[10px] font-semibold text-primary-400 uppercase tracking-wider pb-3">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {recentRecords.map((record) => (
                   <tr key={record.id} className="border-b border-primary-100 last:border-0">
-                    <td className="py-3 text-sm font-medium text-primary-800">{record.participant_name}</td>
-                    <td className="py-3 text-sm text-primary-500">{record.company}</td>
-                    <td className="py-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700">
-                        {TRAINING_LABELS[record.training_type] || record.training_type}
+                    <td className="py-3 pr-3 text-sm font-medium text-primary-800 max-w-[120px] truncate">{record.participant_name}</td>
+                    <td className="py-3 pr-3 text-sm text-primary-500 hidden sm:table-cell max-w-[100px] truncate">{record.company}</td>
+                    <td className="py-3 pr-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700 whitespace-nowrap">
+                        {record.training_type}
                       </span>
                     </td>
-                    <td className="py-3 text-sm text-primary-400">
+                    <td className="py-3 text-xs text-primary-400 whitespace-nowrap">
                       {new Date(record.training_date).toLocaleDateString('en-GB', {
                         day: '2-digit', month: 'short', year: 'numeric',
                       })}

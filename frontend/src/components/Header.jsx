@@ -118,16 +118,18 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-primary-200 flex items-center justify-between px-6 shadow-sm">
+    <header className="h-16 bg-white border-b border-primary-200 flex items-center justify-between px-4 sm:px-6 shadow-sm flex-shrink-0">
       {/* Left side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Hamburger — always visible, opens sidebar */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="lg:hidden p-2 rounded-lg hover:bg-primary-100 transition-colors"
+          className="p-2 rounded-lg hover:bg-primary-100 transition-colors flex-shrink-0"
         >
           <HiOutlineMenu className="w-5 h-5 text-primary-600" />
         </button>
-        <div className="relative" ref={searchRef}>
+        {/* Search — hidden on xs, shown from sm */}
+        <div className="relative hidden sm:block" ref={searchRef}>
           <form onSubmit={handleSearchSubmit}>
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
             <input
@@ -136,7 +138,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
-              className="pl-10 pr-4 py-2 w-72 bg-primary-50 border border-primary-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
+              className="pl-10 pr-4 py-2 w-44 sm:w-56 md:w-72 bg-primary-50 border border-primary-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
             />
             {searchQuery && (
               <button
@@ -211,11 +213,11 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-3">
-        {/* Home link */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Home link — hidden on xs */}
         <button
           onClick={() => navigate('/')}
-          className="p-2 rounded-lg hover:bg-primary-100 transition-colors"
+          className="hidden sm:flex p-2 rounded-lg hover:bg-primary-100 transition-colors"
           title="Back to Home"
         >
           <HiOutlineHome className="w-5 h-5 text-primary-500" />

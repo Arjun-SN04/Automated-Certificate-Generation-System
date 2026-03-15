@@ -18,7 +18,7 @@ function ProtectedRoute({ children }) {
   const { admin, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-primary-50/50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="w-8 h-8 border-3 border-primary-300 border-t-primary-800 rounded-full animate-spin" />
       </div>
     );
@@ -52,7 +52,7 @@ function App() {
         toastOptions={{
           duration: 3000,
           style: {
-            background: '#262626',
+            background: '#000021',
             color: '#fff',
             borderRadius: '12px',
             fontSize: '14px',

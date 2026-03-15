@@ -52,7 +52,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50/30 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -73,7 +73,7 @@ export default function Login() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl border border-primary-100 shadow-xl shadow-primary-800/5 p-8">
+        <div className="bg-white rounded-2xl border border-primary-100 shadow-xl shadow-primary-800/5 p-5 sm:p-8">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-primary-800">Welcome back</h1>
             <p className="text-sm text-primary-400 mt-1">Sign in to your account</p>

@@ -37,11 +37,12 @@ const TRAINING_LABELS = {
 const TRAINING_TYPES = Object.entries(TRAINING_LABELS).map(([v, l]) => ({ value: v, label: l }));
 
 function badgeClass(type) {
-  if (['FDI', 'FDA'].includes(type)) return 'bg-emerald-100 text-emerald-700';
-  if (['FDR', 'FTL'].includes(type)) return 'bg-violet-100 text-violet-700';
-  if (type === 'HF')  return 'bg-amber-100 text-amber-700';
-  if (type === 'NDG') return 'bg-red-100 text-red-700';
-  return 'bg-blue-100 text-blue-700';
+  // All training type badges use the brand blue theme
+  return '';
+}
+
+function badgeStyle() {
+  return { background: '#eff6ff', color: '#0000ff', border: '1px solid #bfdbfe' };
 }
 
 function mkInitials(name = '') {
@@ -611,7 +612,7 @@ export default function Airlines() {
       </AnimatePresence>
 
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-primary-800">Airlines &amp; Submissions</h1>
           <p className="text-sm text-primary-400 mt-1">View all airline submissions, generate and preview certificates</p>
@@ -630,8 +631,9 @@ export default function Airlines() {
       </div>
 
       {/* Bulk Action Bar */}
-      <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="card p-3 sm:p-4 space-y-3">
+        {/* Row 1: Select all + count */}
+        <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <div
               onClick={toggleSelectAll}
@@ -655,40 +657,44 @@ export default function Airlines() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Row 2: Action buttons — wrap on mobile */}
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleDeleteSelected}
             disabled={checked.size === 0 || deletingSelected}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all ${
               checked.size > 0 && !deletingSelected
                 ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-300'
                 : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'
             }`}
           >
-            {deletingSelected ? <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : <HiOutlineTrash className="w-4 h-4" />}
+            {deletingSelected ? <div className="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> : <HiOutlineTrash className="w-3.5 h-3.5" />}
             {deletingSelected ? 'Deleting...' : checked.size > 0 ? `Delete ${checked.size}` : 'Delete Selected'}
           </button>
+
           <button
             onClick={handleGenerateSelected}
             disabled={checked.size === 0 || generating}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
               checked.size > 0 && !generating
                 ? 'bg-primary-800 text-white hover:bg-primary-900 shadow-md hover:shadow-lg'
                 : 'bg-primary-100 text-primary-400 cursor-not-allowed'
             }`}
           >
-            {generating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <HiOutlineDocumentDownload className="w-4 h-4" />}
-            {generating ? 'Generating...' : checked.size > 0 ? `Generate ${checked.size} Certificate${checked.size > 1 ? 's' : ''}` : 'Generate Selected'}
+            {generating ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <HiOutlineDocumentDownload className="w-3.5 h-3.5" />}
+            {generating ? 'Generating...' : checked.size > 0 ? `Generate ${checked.size} Cert${checked.size > 1 ? 's' : ''}` : 'Generate Selected'}
           </button>
+
           <button
             onClick={openCounterModal}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
             title="Reset certificate sequence counters"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Reset Counters
+            <span>Reset Counters</span>
           </button>
         </div>
       </div>
@@ -728,7 +734,7 @@ export default function Airlines() {
 
         return (
           <div key={airline.airlineName} className="card overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 flex-wrap gap-2">
               <button onClick={() => toggle(airline.airlineName)} className="flex items-center gap-4 flex-1 text-left">
                 <div className="w-11 h-11 rounded-xl bg-primary-800 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-sm font-bold">{mkInitials(airline.airlineName)}</span>
@@ -794,16 +800,16 @@ export default function Airlines() {
                   className="overflow-hidden"
                 >
                   <div className="border-t border-primary-100 overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-[700px]">
                       <thead>
                         <tr className="bg-primary-50/60">
-                          <th className="w-10 px-4 py-2.5" />
+                          <th className="w-10 px-3 py-2.5" />
                           <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Participant</th>
-                          <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Department</th>
+                          <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Dept</th>
                           <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Training</th>
-                          <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Start Date</th>
-                          <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">End Date</th>
-                          <th className="text-right text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-2.5">Actions</th>
+                          <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Start</th>
+                          <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">End</th>
+                          <th className="text-right text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-3 py-2.5">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -895,10 +901,13 @@ export default function Airlines() {
                               <td className="px-3 py-3 text-sm text-primary-600">{p.department}</td>
 
                               <td className="px-3 py-3">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${badgeClass(p.training_type)}`}>
+                                <span
+                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                                  style={badgeStyle()}
+                                >
                                   {p.training_type}
                                 </span>
-                                <p className="text-[10px] text-primary-400 mt-0.5 max-w-[150px] leading-tight">
+                                <p className="text-[10px] mt-0.5 max-w-[150px] leading-tight" style={{ color: '#3b4f9e' }}>
                                   {TRAINING_LABELS[p.training_type] || p.training_type}
                                 </p>
                               </td>
@@ -910,7 +919,12 @@ export default function Airlines() {
                                 <div className="flex items-center justify-end gap-1.5">
                                   {p.cert_sequence ? (
                                     <>
-                                      <button onClick={() => setRowPreview(p)} title="Preview" className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-accent-200 text-xs font-medium text-accent-700 bg-accent-50 hover:bg-accent-100 transition-colors">
+                                      <button onClick={() => setRowPreview(p)} title="Preview"
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors"
+                                        style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#0000ff' }}
+                                        onMouseEnter={e => e.currentTarget.style.background='#dbeafe'}
+                                        onMouseLeave={e => e.currentTarget.style.background='#eff6ff'}
+                                      >
                                         <HiOutlineEye className="w-3.5 h-3.5" /> Preview
                                       </button>
                                       <button onClick={() => handleDownloadIssued(p)} disabled={downloadingId === pid} title="Download" className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 transition-colors">
