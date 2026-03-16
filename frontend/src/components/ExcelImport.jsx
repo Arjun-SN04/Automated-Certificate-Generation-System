@@ -19,7 +19,7 @@ import {
   HiOutlineTable,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { createParticipant } from '../api';
+import { createParticipant, getAirlinesList } from '../api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TRAINING_TYPES = ['FDI','FDR','FDA','FTL','NDG','HF','GD','TCD'];
@@ -260,6 +260,22 @@ export default function ExcelImport({ isAdmin, airlineName, company, onSuccess }
   const [fileName, setFileName] = useState('');
   const fileInputRef            = useRef();
 
+  // Airline selection for admin
+  const [airlineOptions, setAirlineOptions] = useState([]);
+  const [selectedAirline, setSelectedAirline] = useState(isAdmin ? '' : (airlineName || company || ''));
+  const [customAirline, setCustomAirline] = useState('');
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    getAirlinesList()
+      .then(res => setAirlineOptions(res.data || []))
+      .catch(() => {});
+  }, [isAdmin]);
+
+  const effectiveCompany = isAdmin
+    ? (selectedAirline === '__other__' ? customAirline.trim() : selectedAirline)
+    : (company || airlineName);
+
   // Always-current refs so async handleSubmit never reads stale closure values
   const rowsRef     = useRef([]);
   const statusesRef = useRef({});
@@ -303,6 +319,12 @@ export default function ExcelImport({ isAdmin, airlineName, company, onSuccess }
 
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    // Admin must pick an airline first
+    if (isAdmin && !effectiveCompany) {
+      toast.error('Please select an airline before importing');
+      return;
+    }
+
     // Use refs to always get latest state (avoids stale closure bug)
     const currentRows     = rowsRef.current;
     const currentStatuses = statusesRef.current;
@@ -333,7 +355,7 @@ export default function ExcelImport({ isAdmin, airlineName, company, onSuccess }
         await createParticipant({
           first_name:    row.first_name,
           last_name:     row.last_name,
-          company:       isAdmin ? (company || airlineName) : airlineName,
+          company:       effectiveCompany,
           department:    row.department,
           training_type: row.training_type,
           training_date: row.training_date,
@@ -398,6 +420,33 @@ export default function ExcelImport({ isAdmin, airlineName, company, onSuccess }
           <HiOutlineDownload className="w-3.5 h-3.5" /> Download Template
         </button>
       </div>
+
+      {/* Airline selection for admin */}
+      {isAdmin && (
+        <div className="card p-4 space-y-2">
+          <label className="label">Airline Name *</label>
+          <select
+            value={selectedAirline}
+            onChange={e => setSelectedAirline(e.target.value)}
+            className="input-field appearance-none cursor-pointer max-w-sm"
+          >
+            <option value="">Select airline</option>
+            {airlineOptions.map(a => (
+              <option key={a.airlineName} value={a.airlineName}>{a.airlineName}</option>
+            ))}
+            <option value="__other__">Other (type manually)</option>
+          </select>
+          {selectedAirline === '__other__' && (
+            <input
+              value={customAirline}
+              onChange={e => setCustomAirline(e.target.value)}
+              className="input-field mt-2 max-w-sm"
+              placeholder="Type airline name"
+              autoFocus
+            />
+          )}
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {/* Drop zone */}

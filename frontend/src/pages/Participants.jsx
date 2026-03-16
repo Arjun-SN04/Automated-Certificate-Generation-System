@@ -271,7 +271,7 @@ export default function Participants() {
         ) : (
           <div className="space-y-3">
             {groups && groups.map(([key, recs]) => (
-              <SubmissionGroup key={key} groupKey={key} records={recs} defaultOpen={false} />
+              <SubmissionGroup key={key} groupKey={key} records={recs} defaultOpen={true} />
             ))}
           </div>
         )}

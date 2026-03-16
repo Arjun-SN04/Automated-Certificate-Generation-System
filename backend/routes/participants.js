@@ -13,20 +13,33 @@ router.get('/', async (req, res) => {
     const { search, training_type, company } = req.query;
     const filter = {};
 
-    // Airlines only see their own submissions
+    // Airlines see their own submissions — match on both fields (case-insensitive)
     if (req.admin.role === 'airline') {
-      filter.airline_name = req.admin.airlineName;
+      const airlineRegex = new RegExp(`^${req.admin.airlineName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      filter.$and = [
+        { $or: [
+          { airline_name: airlineRegex },
+          { company: airlineRegex },
+        ]}
+      ];
     }
 
     if (search) {
       const regex = new RegExp(search, 'i');
-      filter.$or = [
-        { participant_name: regex },
-        { first_name: regex },
-        { last_name: regex },
-        { company: regex },
-        { department: regex },
-      ];
+      const searchOr = {
+        $or: [
+          { participant_name: regex },
+          { first_name: regex },
+          { last_name: regex },
+          { company: regex },
+          { department: regex },
+        ],
+      };
+      if (filter.$and) {
+        filter.$and.push(searchOr);
+      } else {
+        Object.assign(filter, searchOr);
+      }
     }
     if (training_type) filter.training_type = training_type;
     if (company) filter.company = company;
@@ -71,6 +84,19 @@ router.get('/by-airline', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('GET /by-airline error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET all airline names (admin only) ─────────────────────────────────────
+router.get('/airlines', async (req, res) => {
+  try {
+    if (req.admin.role === 'airline') {
+      return res.status(403).json({ error: 'Admin access required.' });
+    }
+    const airlines = await Airline.find({}).sort({ airlineName: 1 }).select('airlineName email -_id');
+    res.json(airlines);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -360,17 +386,5 @@ router.patch('/:id/full-cert-id', async (req, res) => {
   }
 });
 
-// ─── GET all airline names (admin only) ─────────────────────────────────────
-router.get('/airlines', async (req, res) => {
-  try {
-    if (req.admin.role === 'airline') {
-      return res.status(403).json({ error: 'Admin access required.' });
-    }
-    const airlines = await Airline.find({}).sort({ airlineName: 1 }).select('airlineName email -_id');
-    res.json(airlines);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 module.exports = router;
