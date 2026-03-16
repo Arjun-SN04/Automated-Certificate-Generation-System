@@ -173,23 +173,124 @@ router.get('/counters', async (req, res) => {
   }
 });
 
-// ── POST /counters/reset — reset counter for one or all training types ───────────
+// ── POST /counters/reset — reset counter for one or all training types ────────
+//
+// Body params:
+//   training_type    {string}  — the type to reset (required unless `all` is set)
+//   all              {bool}    — reset every training type
+//   startFrom        {number}  — next NEW cert number (default: 1)
+//   mode             {string}  — 'hard' or 'soft' (default: 'soft')
+//
+// MODES:
+//   soft (default) — existing participants KEEP their current cert_sequence.
+//                    Only participants without a number get numbers from startFrom.
+//                    Counter is set so new numbers begin at startFrom, but if any
+//                    existing number is >= startFrom the counter steps above them
+//                    automatically to avoid collisions.
+//
+//   hard           — ALL participants of this type have cert_sequence wiped to null.
+//                    Every participant (old and new) gets a brand new number starting
+//                    from startFrom on next certificate generation.
+//                    Use this when you want to completely renumber everything.
+//
 router.post('/counters/reset', async (req, res) => {
   try {
+    if (req.admin?.role === 'airline') {
+      return res.status(403).json({ error: 'Admin access required.' });
+    }
+
+    const startFrom = Math.max(1, Number(req.body.startFrom) || 1);
+    const mode      = req.body.mode === 'hard' ? 'hard' : 'soft';
+    const types     = [];
+
     if (req.body.all) {
-      await CertCounter.updateMany({}, { $set: { seq: 0 } });
-      return res.json({ message: 'All counters reset to 0' });
+      // Collect all known training types from the counter collection + participants
+      const counters     = await CertCounter.find({}).lean();
+      const ptypes       = await Participant.distinct('training_type');
+      const allTypes     = new Set([...counters.map(c => c.training_type), ...ptypes]);
+      types.push(...allTypes);
+    } else {
+      if (!req.body.training_type) {
+        return res.status(400).json({ error: 'training_type or all:true is required' });
+      }
+      types.push(req.body.training_type);
     }
-    if (!req.body.training_type) {
-      return res.status(400).json({ error: 'training_type or all required' });
+
+    const results = [];
+
+    for (const type of types) {
+      if (mode === 'hard') {
+        // ── HARD RESET ──────────────────────────────────────────────────────────
+        // Wipe cert_sequence on ALL participants of this type.
+        // They will all get brand new numbers (from startFrom upward) the next
+        // time a certificate is generated for each of them.
+        await Participant.updateMany(
+          { training_type: type },
+          { $set: { cert_sequence: null } }
+        );
+
+        // Set counter: seq = startFrom-1 so first reserve() returns startFrom.
+        // floor = startFrom so reserveCertSequence skips the participant scan
+        // (all nulled out anyway) and issues from startFrom cleanly.
+        await CertCounter.findOneAndUpdate(
+          { training_type: type },
+          { $set: { seq: startFrom - 1, floor: startFrom } },
+          { upsert: true }
+        );
+
+        results.push({
+          type,
+          mode: 'hard',
+          message: `All participant cert numbers wiped. Next number: ${startFrom}.`,
+        });
+
+      } else {
+        // ── SOFT RESET ──────────────────────────────────────────────────────────
+        // Existing participants KEEP their numbers — their physical certificates
+        // remain valid. Only participants currently without a number will receive
+        // new ones starting from startFrom.
+        //
+        // Safety: if any existing participant already has a number >= startFrom,
+        // we must start above them to avoid a collision. Find the real max among
+        // participants that still have a cert_sequence.
+        const highest = await Participant.findOne(
+          { training_type: type, cert_sequence: { $exists: true, $ne: null } },
+          { cert_sequence: 1 },
+          { sort: { cert_sequence: -1 } }
+        ).lean();
+
+        const existingMax = highest ? (highest.cert_sequence || 0) : 0;
+
+        // The effective start is whichever is higher: what admin requested, or
+        // one above the highest already-issued number (to prevent duplicates).
+        const effectiveStart = Math.max(startFrom, existingMax + 1);
+
+        await CertCounter.findOneAndUpdate(
+          { training_type: type },
+          { $set: { seq: effectiveStart - 1, floor: effectiveStart } },
+          { upsert: true }
+        );
+
+        const warning = effectiveStart > startFrom
+          ? ` (adjusted to ${effectiveStart} to avoid collision with existing #${existingMax})`
+          : '';
+
+        results.push({
+          type,
+          mode: 'soft',
+          effectiveStart,
+          message: `Existing numbers preserved. Next new number: ${effectiveStart}${warning}.`,
+        });
+      }
     }
-    await CertCounter.findOneAndUpdate(
-      { training_type: req.body.training_type },
-      { $set: { seq: 0 } },
-      { upsert: true }
-    );
-    res.json({ message: `Counter for ${req.body.training_type} reset to 0` });
+
+    res.json({
+      startFrom,
+      mode,
+      results,
+    });
   } catch (err) {
+    console.error('POST /counters/reset error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
