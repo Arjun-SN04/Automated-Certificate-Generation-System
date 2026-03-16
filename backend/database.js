@@ -1,4 +1,3 @@
-require('dotenv').config();
 const mongoose = require('mongoose');
 // Models are required here so they register with mongoose before routes load
 const Participant = require('./models/Participant');

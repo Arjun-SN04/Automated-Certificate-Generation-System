@@ -3,7 +3,7 @@ const router = express.Router();
 const Participant = require('../models/Participant');
 const { generateCertificate, MODULES_LIST } = require('../services/certificateGenerator');
 const { authMiddleware } = require('./auth');
-const { reserveCertSequence } = require('../models/CertCounter');
+const { CertCounter, reserveCertSequence } = require('../models/CertCounter');
 
 // Certificate routes accept token via Authorization header OR ?token= query param
 // (needed for iframe/anchor direct URL access that can't set custom headers)
@@ -166,7 +166,6 @@ router.get('/modules', (req, res) => {
 // ── GET /counters — current cert sequence counters per training type ───────────
 router.get('/counters', async (req, res) => {
   try {
-    const { CertCounter } = require('../models/CertCounter');
     const counters = await CertCounter.find({}).sort({ training_type: 1 }).lean();
     res.json(counters);
   } catch (err) {
@@ -177,7 +176,6 @@ router.get('/counters', async (req, res) => {
 // ── POST /counters/reset — reset counter for one or all training types ───────────
 router.post('/counters/reset', async (req, res) => {
   try {
-    const { CertCounter } = require('../models/CertCounter');
     if (req.body.all) {
       await CertCounter.updateMany({}, { $set: { seq: 0 } });
       return res.json({ message: 'All counters reset to 0' });

@@ -296,6 +296,9 @@ async function generateCertificate(participant) {
   // ── 6. BODY TEXT ────────────────────────────────────────────────────────────
   const certDateStr  = (participant.end_date && participant.end_date.trim())
     ? participant.end_date : participant.training_date;
+  if (!certDateStr) {
+    throw new Error(`Missing training date for participant ${participant._id || participant.participant_name}`);
+  }
   const dateText     = formatDateUpper(certDateStr);
   const locationText = (participant.location || '').trim();
 

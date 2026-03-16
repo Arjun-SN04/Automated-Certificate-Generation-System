@@ -4,7 +4,8 @@ const Admin = require('../models/Admin');
 const Airline = require('../models/Airline');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'ifoa-certificate-system-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET environment variable is required');
 
 // ─────────────────────────────────────────────
 //  JWT middleware — works for both admin & airline
