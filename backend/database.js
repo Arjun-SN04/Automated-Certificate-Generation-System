@@ -12,8 +12,30 @@ async function initDB() {
     throw new Error('MONGODB_URL environment variable is required');
   }
 
-  await mongoose.connect(mongoUrl, { dbName: 'certificateSystem' });
-  console.log('Connected to MongoDB Atlas');
+  const maxRetries = 5;
+  let retries = 0;
+
+  while (retries < maxRetries) {
+    try {
+      await mongoose.connect(mongoUrl, {
+        dbName: 'certificateSystem',
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000,
+      });
+      console.log('✅ Connected to MongoDB Atlas');
+      break;
+    } catch (err) {
+      retries++;
+      const delay = Math.min(1000 * Math.pow(2, retries - 1), 10000);
+      if (retries < maxRetries) {
+        console.warn(`⚠️  MongoDB connection failed (attempt ${retries}/${maxRetries}). Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        console.error(`❌ Failed to connect to MongoDB after ${maxRetries} attempts`);
+        throw err;
+      }
+    }
+  }
 
   // Seed default admin if none exists
   const adminCount = await Admin.countDocuments();

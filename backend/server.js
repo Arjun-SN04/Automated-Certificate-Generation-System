@@ -1,3 +1,8 @@
+// Force Google public DNS so MongoDB Atlas SRV lookups work on
+// corporate/restrictive networks whose DNS blocks SRV records.
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -42,11 +47,30 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+let dbConnected = false;
+
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: dbConnected ? 'ok' : 'degraded',
+    database: dbConnected ? 'connected' : 'offline',
+    timestamp: new Date().toISOString() 
+  });
 });
 
-initDB().then(() => {
+// Start DB initialization but don't block server startup
+initDB()
+  .then(() => {
+    dbConnected = true;
+    console.log('✅ Database initialization complete');
+  })
+  .catch((err) => {
+    dbConnected = false;
+    console.warn('⚠️  Server starting in offline mode (database unavailable)');
+    console.warn('   Some API endpoints may not work until database is reachable');
+  });
+
+// Setup routes immediately (they'll handle offline state)
+setTimeout(() => {
   const participantsRouter = require('./routes/participants');
   const certificatesRouter = require('./routes/certificates');
   const { router: authRouter } = require('./routes/auth');
@@ -64,8 +88,6 @@ initDB().then(() => {
 
   app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
+    console.log(`📡 Database status: ${dbConnected ? 'connected' : 'offline'}`);
   });
-}).catch((err) => {
-  console.error('❌ Failed to initialize database:', err);
-  process.exit(1);
-});
+}, 100);
