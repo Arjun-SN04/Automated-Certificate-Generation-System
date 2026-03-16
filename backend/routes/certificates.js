@@ -17,6 +17,36 @@ function certAuth(req, res, next) {
 
 router.use(certAuth);
 
+// ── Helper: ensure a participant has a guaranteed-unique cert_sequence ────────
+//
+// reserveCertSequence() now scans the entire Participant collection for the
+// true highest number ever issued for this training type (across ALL airlines)
+// and returns max + 1. So we simply:
+//   • If the participant has no cert_sequence yet → reserve one and save.
+//   • If the participant already has a cert_sequence → check whether any
+//     OTHER participant holds the same number. If a collision exists, reserve
+//     a fresh number (which will be higher than every existing one).
+async function ensureUniqueCertSequence(participant) {
+  if (!participant.cert_sequence) {
+    participant.cert_sequence = await reserveCertSequence(participant.training_type);
+    await participant.save();
+    return;
+  }
+
+  // Collision check — does any other participant share this number?
+  const collision = await Participant.findOne({
+    _id:           { $ne: participant._id },
+    training_type: participant.training_type,
+    cert_sequence: participant.cert_sequence,
+  });
+
+  if (collision) {
+    // reserveCertSequence looks at the real DB max, so this is always safe
+    participant.cert_sequence = await reserveCertSequence(participant.training_type);
+    await participant.save();
+  }
+}
+
 // ── Helper: set PDF response headers ─────────────────────────────────────────
 function setPdfHeaders(res, filename, disposition = 'attachment') {
   res.setHeader('Content-Type', 'application/pdf');
@@ -32,18 +62,13 @@ router.get('/generate/:id', async (req, res) => {
     const participant = await Participant.findById(req.params.id);
     if (!participant) return res.status(404).json({ error: 'Participant not found' });
 
-    // Assign cert_sequence on first generate, save templateVariant too
+    // Assign cert_sequence — reserve fresh if missing OR if a duplicate exists
     const incomingVariant = req.query.variant || 'default';
-    let needsSave = false;
-    if (!participant.cert_sequence) {
-      participant.cert_sequence = await reserveCertSequence(participant.training_type);
-      needsSave = true;
-    }
+    await ensureUniqueCertSequence(participant);
     if (participant.templateVariant !== incomingVariant) {
       participant.templateVariant = incomingVariant;
-      needsSave = true;
+      await participant.save();
     }
-    if (needsSave) await participant.save();
 
     const data = participant.toObject();
     data.templateVariant = incomingVariant;
@@ -98,10 +123,8 @@ router.post('/generate/:id', async (req, res) => {
     const participant = await Participant.findById(req.params.id);
     if (!participant) return res.status(404).json({ error: 'Participant not found' });
 
-    // ── Assign cert_sequence NOW (first generate only) — never on preview ──────
-    if (!participant.cert_sequence) {
-      participant.cert_sequence = await reserveCertSequence(participant.training_type);
-    }
+    // Assign cert_sequence — reserve fresh if missing OR if a duplicate exists
+    await ensureUniqueCertSequence(participant);
 
     // Override modules if provided in body
     if (req.body.modules) {

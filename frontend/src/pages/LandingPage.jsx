@@ -534,7 +534,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div className="flex items-center gap-2">
             <img src={logoImg} alt="IFOA Logo" className="h-7 w-auto object-contain" />
-            <span className="text-sm font-semibold text-primary-800">IFOA Certificate System</span>
+            <span className="text-sm font-semibold text-primary-800">IFOA Training Management System</span>
           </div>
           <p className="text-xs text-primary-400">
             &copy; {new Date().getFullYear()} International Flight Operations Academy. All rights reserved.

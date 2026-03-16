@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,7 +11,7 @@ import {
   HiOutlineExclamationCircle,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { createParticipant } from '../api';
+import { createParticipant, getAirlinesList } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const TRAINING_TYPES = [
@@ -39,7 +39,7 @@ const emptyRow = () => ({
 });
 
 // ─── Single-mode form ─────────────────────────────────────────────────────────
-function SingleForm({ isAdmin, airlineName, onSuccess }) {
+function SingleForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     first_name: '',
@@ -103,14 +103,37 @@ function SingleForm({ isAdmin, airlineName, onSuccess }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Airline Name *</label>
-          <input
-            name="company"
-            value={form.company}
-            onChange={isAdmin ? handleChange : undefined}
-            readOnly={!isAdmin}
-            className={`input-field ${!isAdmin ? 'bg-primary-100 cursor-not-allowed text-primary-500' : ''}`}
-            placeholder="e.g. Emirates Airlines"
-          />
+          {isAdmin ? (
+            <select
+              name="company"
+              value={form.company}
+              onChange={handleChange}
+              className="input-field appearance-none cursor-pointer"
+            >
+              <option value="">Select airline</option>
+              {airlineOptions.map(a => (
+                <option key={a.airlineName} value={a.airlineName}>{a.airlineName}</option>
+              ))}
+              <option value="__other__">Other (type manually)</option>
+            </select>
+          ) : (
+            <input
+              name="company"
+              value={form.company}
+              readOnly
+              className="input-field bg-primary-100 cursor-not-allowed text-primary-500"
+            />
+          )}
+          {isAdmin && form.company === '__other__' && (
+            <input
+              name="company"
+              value={form._customCompany || ''}
+              onChange={e => setForm(f => ({ ...f, _customCompany: e.target.value, company: e.target.value }))}
+              className="input-field mt-2"
+              placeholder="Type airline name"
+              autoFocus
+            />
+          )}
           {!isAdmin && <p className="text-[10px] text-primary-400 mt-1">Auto-filled from your account</p>}
         </div>
         <div>
@@ -269,10 +292,11 @@ function BulkRow({ row, idx, onChange, onRemove, result }) {
 }
 
 // ─── Bulk mode form ───────────────────────────────────────────────────────────
-function BulkForm({ isAdmin, airlineName, onSuccess }) {
+function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
   const [rows, setRows]       = useState([emptyRow(), emptyRow(), emptyRow()]);
-  const [company, setCompany] = useState(isAdmin ? '' : (airlineName || ''));
-  const [saving, setSaving]   = useState(false);
+  const [company, setCompany]           = useState(isAdmin ? '' : (airlineName || ''));
+  const [customCompany, setCustomCompany] = useState('');
+  const [saving, setSaving]              = useState(false);
   const [results, setResults] = useState({});
   const [done, setDone]       = useState(false);
 
@@ -306,7 +330,8 @@ function BulkForm({ isAdmin, airlineName, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isAdmin && !company.trim()) { toast.error('Please enter the airline name'); return; }
+    const effectiveCompany = company === '__other__' ? customCompany.trim() : company.trim();
+    if (isAdmin && !effectiveCompany) { toast.error('Please enter the airline name'); return; }
     if (!shared.department.trim())  { toast.error('Please enter the department'); return; }
     if (!shared.training_type)      { toast.error('Please select a training type'); return; }
     if (!shared.training_date)      { toast.error('Please select a start date'); return; }
@@ -333,7 +358,7 @@ function BulkForm({ isAdmin, airlineName, onSuccess }) {
         await createParticipant({
           first_name:    row.first_name.trim(),
           last_name:     row.last_name.trim(),
-          company:       isAdmin ? company.trim() : airlineName,
+          company:       isAdmin ? effectiveCompany : airlineName,
           department:    shared.department.trim(),
           training_type: shared.training_type,
           training_date: shared.training_date,
@@ -375,8 +400,26 @@ function BulkForm({ isAdmin, airlineName, onSuccess }) {
         {isAdmin && (
           <div>
             <label className="label">Airline Name *</label>
-            <input value={company} onChange={e => setCompany(e.target.value)}
-              className="input-field max-w-sm" placeholder="e.g. Emirates Airlines" />
+            <select
+              value={company}
+              onChange={e => setCompany(e.target.value)}
+              className="input-field appearance-none cursor-pointer max-w-sm"
+            >
+              <option value="">Select airline</option>
+              {airlineOptions.map(a => (
+                <option key={a.airlineName} value={a.airlineName}>{a.airlineName}</option>
+              ))}
+              <option value="__other__">Other (type manually)</option>
+            </select>
+            {company === '__other__' && (
+              <input
+                value={customCompany}
+                onChange={e => setCustomCompany(e.target.value)}
+                className="input-field mt-2 max-w-sm"
+                placeholder="Type airline name"
+                autoFocus
+              />
+            )}
           </div>
         )}
 
@@ -518,6 +561,14 @@ export default function AddParticipant() {
   const { admin, isAdmin } = useAuth();
   const airlineName = admin?.airlineName || '';
   const [mode, setMode] = useState('single'); // 'single' | 'bulk'
+  const [airlineOptions, setAirlineOptions] = useState([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    getAirlinesList()
+      .then(res => setAirlineOptions(res.data || []))
+      .catch(() => {}); // silently ignore — dropdown just shows empty
+  }, [isAdmin]);
 
   const handleSuccess = () => navigate(isAdmin ? '/admin/airlines' : '/admin/participants');
 
@@ -557,12 +608,12 @@ export default function AddParticipant() {
       <AnimatePresence mode="wait">
         {mode === 'single' && (
           <motion.div key="single" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
-            <SingleForm isAdmin={isAdmin} airlineName={airlineName} onSuccess={handleSuccess} />
+            <SingleForm isAdmin={isAdmin} airlineName={airlineName} airlineOptions={airlineOptions} onSuccess={handleSuccess} />
           </motion.div>
         )}
         {mode === 'bulk' && (
           <motion.div key="bulk" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-            <BulkForm isAdmin={isAdmin} airlineName={airlineName} onSuccess={handleSuccess} />
+            <BulkForm isAdmin={isAdmin} airlineName={airlineName} airlineOptions={airlineOptions} onSuccess={handleSuccess} />
           </motion.div>
         )}
       </AnimatePresence>

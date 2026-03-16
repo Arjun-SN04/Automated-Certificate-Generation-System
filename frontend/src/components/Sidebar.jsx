@@ -48,7 +48,7 @@ export default function Sidebar({ open, setOpen }) {
         >
           <img src={logoImg} alt="IFOA" className="h-8 w-auto object-contain flex-shrink-0" />
           <span className="text-[11px] font-medium text-primary-400 truncate">
-            {isAdmin ? 'Certificate System' : 'Airline Portal'}
+            {isAdmin ? 'Training Management' : 'Airline Portal'}
           </span>
         </button>
 

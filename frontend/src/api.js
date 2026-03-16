@@ -30,6 +30,7 @@ export const airlineLogin  = (data) => api.post('/auth/airline/login', data);
 
 // ── Participants ────────────────────────────────────────────────────────────
 export const getParticipantsByAirline = () => api.get('/participants/by-airline');
+export const getAirlinesList         = () => api.get('/participants/airlines');
 export const getParticipants    = (params) => api.get('/participants', { params });
 export const getParticipant     = (id)     => api.get(`/participants/${id}`);
 export const createParticipant       = (data)   => api.post('/participants', data);
