@@ -41,8 +41,8 @@ export const deleteAirlineData      = (airlineName) => api.delete(`/participants
 export const updateCertSequence     = (id, cert_sequence) => api.patch(`/participants/${id}/cert-sequence`, { cert_sequence });
 export const updateFullCertId       = (id, cert_sequence, cert_year) => api.patch(`/participants/${id}/full-cert-id`, { cert_sequence, cert_year });
 export const getCertCounters        = () => api.get('/certificates/counters');
-export const resetCertCounter       = (training_type) => api.post('/certificates/counters/reset', { training_type });
-export const resetAllCertCounters   = () => api.post('/certificates/counters/reset', { all: true });
+export const resetCertCounter       = (training_type, startFrom = 0) => api.post('/certificates/counters/reset', { training_type, startFrom, mode: 'hard' });
+export const resetAllCertCounters   = (startFrom = 0) => api.post('/certificates/counters/reset', { all: true, startFrom, mode: 'hard' });
 
 // ── Certificates ────────────────────────────────────────────────────────────
 export const getModulesList     = ()     => api.get('/certificates/modules');

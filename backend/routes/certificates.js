@@ -199,7 +199,11 @@ router.post('/counters/reset', async (req, res) => {
       return res.status(403).json({ error: 'Admin access required.' });
     }
 
-    const startFrom = Math.max(1, Number(req.body.startFrom) || 1);
+    // startFrom=0 is a valid "full reset" — wipe all sequences, next cert = 1
+    const rawStart  = Number(req.body.startFrom);
+    const startFrom = (!isNaN(rawStart) && rawStart >= 0) ? rawStart : 1;
+    // When admin resets to 0 we always do a hard reset regardless of mode param
+    const isZeroReset = startFrom === 0;
     const mode      = req.body.mode === 'hard' ? 'hard' : 'soft';
     const types     = [];
 
@@ -219,7 +223,7 @@ router.post('/counters/reset', async (req, res) => {
     const results = [];
 
     for (const type of types) {
-      if (mode === 'hard') {
+      if (isZeroReset || mode === 'hard') {
         // ── HARD RESET ──────────────────────────────────────────────────────────
         // Wipe cert_sequence on ALL participants of this type.
         // They will all get brand new numbers (from startFrom upward) the next
@@ -229,19 +233,22 @@ router.post('/counters/reset', async (req, res) => {
           { $set: { cert_sequence: null } }
         );
 
-        // Set counter: seq = startFrom-1 so first reserve() returns startFrom.
-        // floor = startFrom so reserveCertSequence skips the participant scan
-        // (all nulled out anyway) and issues from startFrom cleanly.
+        // For startFrom=0: full reset — wipe counter completely, next cert = 1.
+        // For startFrom>0: set floor so reserveCertSequence issues from that number.
+        const effectiveNext = isZeroReset ? 1 : startFrom;
         await CertCounter.findOneAndUpdate(
           { training_type: type },
-          { $set: { seq: startFrom - 1, floor: startFrom } },
+          { $set: { seq: 0, floor: effectiveNext } },
           { upsert: true }
         );
 
         results.push({
           type,
-          mode: 'hard',
-          message: `All participant cert numbers wiped. Next number: ${startFrom}.`,
+          mode: isZeroReset ? 'zero-reset' : 'hard',
+          nextNumber: effectiveNext,
+          message: isZeroReset
+            ? `Full reset. All cert numbers wiped. Admin must regenerate all certificates. Next number will be 1.`
+            : `All participant cert numbers wiped. Next number: ${startFrom}.`,
         });
 
       } else {

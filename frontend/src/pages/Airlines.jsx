@@ -216,12 +216,24 @@ function CounterResetModal({ open, onClose, counters, ALL_TYPES, resetting, onRe
           <div className="flex items-center justify-between px-6 py-4 border-b border-primary-100">
             <div>
               <h2 className="text-base font-bold text-primary-800">Reset Certificate Counters</h2>
-              <p className="text-xs text-primary-400 mt-0.5">Next certificate will start from 00001</p>
+              <p className="text-xs text-primary-400 mt-0.5">Reset to 0 wipes all cert numbers — admin must regenerate</p>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-primary-100 text-primary-400">
               <HiOutlineX className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Warning banner */}
+          <div className="mx-6 mt-4 flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
+            <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <p className="text-xs text-red-700">
+              <strong>Reset to 0</strong> clears ALL certificate numbers for that type.
+              Existing certificates become invalid and admin must regenerate every participant&apos;s certificate.
+            </p>
+          </div>
+
           <div className="p-6 space-y-2">
             {ALL_TYPES.map(type => {
               const counter = counters.find(c => c.training_type === type);
@@ -241,7 +253,7 @@ function CounterResetModal({ open, onClose, counters, ALL_TYPES, resetting, onRe
                       ? <div className="w-3 h-3 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
                       : <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     }
-                    Reset
+                    Reset to 0
                   </button>
                 </div>
               );
@@ -298,22 +310,26 @@ export default function Airlines() {
   };
 
   const handleResetCounter = async (type) => {
-    if (!window.confirm(`Reset counter for ${type} to 0? Next certificate will be 00001.`)) return;
+    if (!window.confirm(
+      `Reset "${type}" counter to 0?\n\nThis will:\n• Clear ALL certificate numbers for ${type} participants\n• Existing certificates become invalid\n• Admin must regenerate every ${type} certificate\n\nNext certificate will start from 00001.`
+    )) return;
     setResetting(type);
     try {
-      await resetCertCounter(type);
-      toast.success(`${type} counter reset to 0`);
+      await resetCertCounter(type, 0);   // pass 0 — full reset
+      toast.success(`${type} reset to 0. All ${type} certificates must be regenerated.`, { duration: 5000 });
       const res = await getCertCounters(); setCounters(res.data);
     } catch { toast.error('Failed to reset'); }
     setResetting(null);
   };
 
   const handleResetAll = async () => {
-    if (!window.confirm('Reset ALL counters to 0? All certificate numbers will restart from 00001.')) return;
+    if (!window.confirm(
+      'Reset ALL counters to 0?\n\nThis will:\n• Clear certificate numbers for EVERY participant\n• All existing certificates become invalid\n• Admin must regenerate ALL certificates\n\nThis cannot be undone.'
+    )) return;
     setResetting('ALL');
     try {
-      await resetAllCertCounters();
-      toast.success('All counters reset to 0');
+      await resetAllCertCounters(0);     // pass 0 — full reset
+      toast.success('All counters reset to 0. All certificates must be regenerated.', { duration: 5000 });
       const res = await getCertCounters(); setCounters(res.data);
     } catch { toast.error('Failed to reset'); }
     setResetting(null);
