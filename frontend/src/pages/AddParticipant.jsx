@@ -560,7 +560,7 @@ export default function AddParticipant() {
   const navigate = useNavigate();
   const { admin, isAdmin } = useAuth();
   const airlineName = admin?.airlineName || '';
-  const [mode, setMode] = useState('single'); // 'single' | 'bulk'
+  const [mode, setMode] = useState('bulk'); // 'single' | 'bulk'
   const [airlineOptions, setAirlineOptions] = useState([]);
 
   useEffect(() => {

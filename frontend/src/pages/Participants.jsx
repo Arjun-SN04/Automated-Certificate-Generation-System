@@ -12,9 +12,12 @@ import {
   HiOutlineChevronRight,
   HiOutlineAcademicCap,
   HiOutlineUsers,
+  HiOutlineEye,
+  HiOutlineDocumentDownload,
+  HiOutlineX,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { getParticipants, deleteParticipant } from '../api';
+import { getParticipants, deleteParticipant, generateCertificateBlob } from '../api';
 
 const TRAINING_TYPES = [
   { value: 'FDI', label: 'Flight Dispatch Initial',      color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
@@ -49,12 +52,39 @@ function initials(name = '') {
 // ─── Collapsible group used in airline view ───────────────────────────────────
 function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [downloading, setDownloading] = useState(null);
+  const [preview, setPreview] = useState(null);
   const first = records[0];
   const typeInfo = TYPE_MAP[first.training_type] || {};
 
   const submittedOn = first.created_at
     ? new Date(first.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—';
+
+  const handleDownload = async (rec) => {
+    try {
+      setDownloading(rec.id);
+      const res = await generateCertificateBlob(rec.id);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Certificate_${(rec.participant_name || '').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Certificate downloaded');
+    } catch {
+      toast.error('Failed to download certificate');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const handlePreview = (rec) => {
+    setPreview(rec);
+  };
 
   return (
     <div className="card overflow-hidden">
@@ -112,43 +142,97 @@ function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
             <div className="divide-y divide-primary-100">
               {records.map((rec, i) => (
                 <div key={rec.id || rec._id}
-                  className="flex items-center gap-4 px-5 py-3 hover:bg-primary-50/40 transition-colors">
-                  {/* Number */}
-                  <span className="w-5 text-[11px] font-semibold text-primary-400 flex-shrink-0">{i + 1}</span>
+                  className="flex items-center gap-4 px-5 py-3 hover:bg-primary-50/40 transition-colors justify-between flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    {/* Number */}
+                    <span className="w-5 text-[11px] font-semibold text-primary-400 flex-shrink-0">{i + 1}</span>
 
-                  {/* Avatar + Name */}
-                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-[10px] font-bold text-primary-600">{initials(rec.participant_name)}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-primary-800 truncate block">{rec.participant_name}</span>
-                      <span className="text-[10px] text-primary-400">
-                        {rec.department && <>{rec.department} &middot; </>}
-                        {fmtDate(rec.training_date)}
-                        {rec.end_date && <> → {fmtDate(rec.end_date)}</>}
-                      </span>
+                    {/* Avatar + Name */}
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[10px] font-bold text-primary-600">{initials(rec.participant_name)}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-primary-800 truncate block">{rec.participant_name}</span>
+                        <span className="text-[10px] text-primary-400">
+                          {rec.department && <>{rec.department} &middot; </>}
+                          {fmtDate(rec.training_date)}
+                          {rec.end_date && <> → {fmtDate(rec.end_date)}</>}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Cert status */}
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                    rec.cert_sequence
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-50 text-amber-600 border-amber-200'
-                  }`}>
-                    {rec.cert_sequence ? '✓ Certificate Issued' : 'Pending'}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Cert status + action buttons */}
+                    {rec.cert_sequence ? (
+                      <>
+                        <button onClick={() => handlePreview(rec)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors"
+                          style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#0000ff' }}>
+                          <HiOutlineEye className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Preview</span>
+                        </button>
+                        <button onClick={() => handleDownload(rec)} disabled={downloading === rec.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-60 transition-colors">
+                          {downloading === rec.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+                          ) : (
+                            <HiOutlineDocumentDownload className="w-3.5 h-3.5" />
+                          )}
+                          <span className="hidden sm:inline">PDF</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-600 border border-amber-200">Pending</span>
+                    )}
 
-                  {/* Locked badge */}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#0000ff' }}>
-                    🔒 Locked
-                  </span>
+                    {/* Locked badge */}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#0000ff' }}>
+                      🔒 Locked
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {preview && (() => {
+          const token = localStorage.getItem('token') || '';
+          const src = `${import.meta.env.VITE_API_URL || '/api'}/certificates/preview/${preview.id}?token=${encodeURIComponent(token)}`;
+          return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setPreview(null)}>
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden"
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-primary-200">
+                  <div className="min-w-0">
+                    <p className="text-sm sm:text-base font-bold text-primary-800 truncate">Certificate — {preview.participant_name}</p>
+                    <p className="text-xs text-primary-400 mt-0.5 truncate">{preview.training_type}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={() => handleDownload(preview)} disabled={downloading === preview.id}
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold disabled:opacity-60 transition-colors">
+                      {downloading === preview.id ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <HiOutlineDocumentDownload className="w-3 h-3" />}
+                      Download PDF
+                    </button>
+                    <button onClick={() => setPreview(null)} className="p-1.5 rounded-lg hover:bg-primary-100 text-primary-400 transition-colors">
+                      <HiOutlineX className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-primary-50" style={{ height: '65vh' }}>
+                  <iframe src={src} title="Certificate Preview" className="w-full h-full border-0" />
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

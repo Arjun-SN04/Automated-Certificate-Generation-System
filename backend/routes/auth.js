@@ -18,7 +18,15 @@ function authMiddleware(req, res, next) {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.admin = decoded; // contains id, email, name, role
+    req.admin = decoded; // contains id, email, name, role, and airlineName for airlines
+    // DEBUG: Log decoded token for airline users
+    if (decoded.role === 'airline') {
+      console.log('DEBUG authMiddleware: Airline JWT decoded', {
+        id: decoded.id,
+        airlineName: decoded.airlineName,
+        role: decoded.role,
+      });
+    }
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token.' });
@@ -195,7 +203,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
     const user = await Model.findById(req.admin.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
-    const { name, currentPassword, newPassword } = req.body;
+    const { name, currentPassword, newPassword, newEmail } = req.body;
     if (name && name.trim()) user.name = name.trim();
 
     if (newPassword) {
@@ -207,6 +215,21 @@ router.put('/profile', authMiddleware, async (req, res) => {
       if (newPassword.length < 6)
         return res.status(400).json({ error: 'New password must be at least 6 characters.' });
       user.password = newPassword;
+    }
+
+    if (newEmail) {
+      if (!currentPassword)
+        return res.status(400).json({ error: 'Current password is required to change email.' });
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch)
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      
+      // Check if email is already in use by another user
+      const existingUser = await Model.findOne({ email: newEmail.trim(), _id: { $ne: user._id } });
+      if (existingUser)
+        return res.status(400).json({ error: 'This email is already in use.' });
+      
+      user.email = newEmail.trim();
     }
 
     await user.save();

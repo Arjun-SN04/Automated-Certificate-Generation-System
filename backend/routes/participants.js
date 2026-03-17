@@ -13,15 +13,44 @@ router.get('/', async (req, res) => {
     const { search, training_type, company } = req.query;
     const filter = {};
 
-    // Airlines see their own submissions — match on both fields (case-insensitive)
+    // DEBUG: Log what's in the JWT for airline users
     if (req.admin.role === 'airline') {
-      const airlineRegex = new RegExp(`^${req.admin.airlineName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
-      filter.$and = [
-        { $or: [
-          { airline_name: airlineRegex },
-          { company: airlineRegex },
-        ]}
-      ];
+      console.log('DEBUG: Airline user request', {
+        id: req.admin.id,
+        email: req.admin.email,
+        name: req.admin.name,
+        airlineName: req.admin.airlineName,
+        role: req.admin.role,
+      });
+    }
+
+    // Airlines see their own submissions
+    if (req.admin.role === 'airline') {
+      const airlineFilters = [];
+      
+      // Primary: use submitted_by ID if available (most reliable)
+      if (req.admin.id) {
+        airlineFilters.push({ submitted_by: req.admin.id });
+      }
+      
+      // Fallback: match by airline_name or company (for seed data and imported records)
+      if (req.admin.airlineName) {
+        const airlineRegex = new RegExp(`^${req.admin.airlineName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        airlineFilters.push({
+          $or: [
+            { airline_name: airlineRegex },
+            { company: airlineRegex },
+          ]
+        });
+      }
+      
+      // If we have any filters, use them with OR (so either submitted_by matches OR name matches)
+      if (airlineFilters.length > 0) {
+        filter.$or = airlineFilters;
+      } else {
+        // No way to identify airline's submissions — return empty results
+        return res.json([]);
+      }
     }
 
     if (search) {
@@ -35,8 +64,10 @@ router.get('/', async (req, res) => {
           { department: regex },
         ],
       };
-      if (filter.$and) {
-        filter.$and.push(searchOr);
+      // If filter already has $or (airline filtering), combine with AND
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, searchOr];
+        delete filter.$or;
       } else {
         Object.assign(filter, searchOr);
       }
