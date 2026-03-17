@@ -6,15 +6,19 @@ import {
   HiOutlineLockClosed,
   HiOutlineArrowRight,
   HiOutlineOfficeBuilding,
+  HiOutlineEye,
+  HiOutlineEyeOff,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { login, airlineLogin } from '../api';
 import { useAuth } from '../context/AuthContext';
+import logoImg from '../assets/logo.png';
 
 export default function Login() {
   const [tab, setTab] = useState('airline'); // 'airline' | 'admin'
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { loginAdmin } = useAuth();
 
@@ -62,13 +66,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-800 to-primary-900 flex items-center justify-center shadow-lg shadow-primary-800/20">
-              <span className="text-white font-bold text-lg">IF</span>
-            </div>
-            <div className="text-left">
-              <span className="text-xl font-bold text-primary-800 tracking-tight block">IFOA</span>
-              <span className="text-xs text-primary-400 font-medium -mt-1 block">Flight Operations Academy</span>
-            </div>
+            <img src={logoImg} alt="IFOA Logo" className="h-12 w-auto object-contain" />
           </Link>
         </div>
 
@@ -125,19 +123,26 @@ export default function Login() {
               <div className="relative">
                 <HiOutlineLockClosed className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-400" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-4 py-2.5 bg-primary-50 border border-primary-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 bg-primary-50 border border-primary-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-400 hover:text-primary-600 transition-colors"
+                >
+                  {showPassword ? <HiOutlineEyeOff className="w-5 h-5" /> : <HiOutlineEye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-primary-800 text-white rounded-xl text-sm font-semibold shadow-lg shadow-primary-800/25 hover:bg-primary-900 hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-accent-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-accent-600/25 hover:bg-accent-700 hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -174,7 +179,7 @@ export default function Login() {
             )}
 
             {tab === 'admin' && (
-              <p className="text-xs text-center text-primary-400 bg-amber-50 border border-amber-100 rounded-xl p-3">
+              <p className="text-xs text-center text-primary-400 bg-accent-50 border border-accent-100 rounded-xl p-3">
                 🔑 Demo: admin@ifoa.com / admin123
               </p>
             )}

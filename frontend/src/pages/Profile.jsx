@@ -11,20 +11,20 @@ import {
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile } from '../api';
+import logoImg from '../assets/logo.png';
 
 export default function Profile() {
-  const { admin, updateAdmin } = useAuth();
+  const { admin, updateAdmin, isAdmin } = useAuth();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(admin?.name || '');
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [emailPassword, setEmailPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const initials = admin?.name
-    ? admin.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'AD';
 
   const handleNameSave = async () => {
     if (!name.trim()) return toast.error('Name cannot be empty');
@@ -61,6 +61,25 @@ export default function Profile() {
     }
   };
 
+  const handleEmailSave = async () => {
+    if (!emailPassword) return toast.error('Enter your current password');
+    if (!newEmail.trim()) return toast.error('Enter the new email');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) return toast.error('Please enter a valid email');
+    setSaving(true);
+    try {
+      const res = await updateProfile({ currentPassword: emailPassword, newEmail: newEmail.trim() });
+      updateAdmin(res.data.token, res.data.admin);
+      toast.success('Email updated successfully');
+      setChangingEmail(false);
+      setEmailPassword('');
+      setNewEmail('');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to change email');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl mx-auto space-y-6">
       <div>
@@ -71,8 +90,8 @@ export default function Profile() {
       {/* Profile card */}
       <div className="card p-5 sm:p-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-          <div className="w-20 h-20 rounded-2xl bg-primary-800 flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">{initials}</span>
+          <div className="w-20 h-20 rounded-2xl bg-white border border-primary-200 flex items-center justify-center overflow-hidden">
+            <img src={logoImg} alt="Company Logo" className="w-16 h-16 object-contain" />
           </div>
           <div className="flex-1">
             {editingName ? (
@@ -81,10 +100,10 @@ export default function Profile() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border border-primary-200 rounded-lg px-3 py-1.5 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="border border-primary-200 rounded-lg px-3 py-1.5 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400"
                   autoFocus
                 />
-                <button onClick={handleNameSave} disabled={saving} className="px-3 py-1.5 bg-primary-800 text-white text-xs font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                <button onClick={handleNameSave} disabled={saving} className="px-3 py-1.5 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700 disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save'}
                 </button>
                 <button onClick={() => { setEditingName(false); setName(admin?.name || ''); }} className="px-3 py-1.5 bg-primary-100 text-primary-600 text-xs font-medium rounded-lg hover:bg-primary-200">
@@ -141,7 +160,11 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-xs font-medium text-primary-400 uppercase tracking-wider">Organization</p>
-              <p className="text-sm font-medium text-primary-800">{admin?.organization || 'IFOA - International Flight Operations Academy'}</p>
+              <p className="text-sm font-medium text-primary-800">
+                {isAdmin
+                  ? (admin?.organization || 'IFOA - International Flight Operations Academy')
+                  : (admin?.airlineName || admin?.name || 'Airline')}
+              </p>
             </div>
           </div>
         </div>
@@ -167,6 +190,43 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Change Email */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-primary-100 rounded-lg flex items-center justify-center">
+              <HiOutlineMail className="w-5 h-5 text-primary-600" />
+            </div>
+            <h3 className="text-base font-bold text-primary-800">Change Email</h3>
+          </div>
+          {!changingEmail && (
+            <button onClick={() => setChangingEmail(true)} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700">
+              Change Email
+            </button>
+          )}
+        </div>
+        {changingEmail && (
+          <div className="space-y-3 mt-2">
+            <div>
+              <label className="block text-xs font-medium text-primary-500 mb-1">Current Password</label>
+              <input type="password" value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400" placeholder="Enter current password" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-primary-500 mb-1">New Email</label>
+              <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400" placeholder="Enter new email address" />
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button onClick={handleEmailSave} disabled={saving} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700 disabled:opacity-50">
+                {saving ? 'Saving...' : 'Update Email'}
+              </button>
+              <button onClick={() => { setChangingEmail(false); setEmailPassword(''); setNewEmail(''); }} className="px-4 py-2 bg-primary-100 text-primary-600 text-xs font-medium rounded-lg hover:bg-primary-200">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Change Password */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
@@ -177,7 +237,7 @@ export default function Profile() {
             <h3 className="text-base font-bold text-primary-800">Change Password</h3>
           </div>
           {!changingPassword && (
-            <button onClick={() => setChangingPassword(true)} className="px-4 py-2 bg-primary-800 text-white text-xs font-medium rounded-lg hover:bg-primary-700">
+            <button onClick={() => setChangingPassword(true)} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700">
               Change Password
             </button>
           )}
@@ -186,18 +246,18 @@ export default function Profile() {
           <div className="space-y-3 mt-2">
             <div>
               <label className="block text-xs font-medium text-primary-500 mb-1">Current Password</label>
-              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Enter current password" />
+              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400" placeholder="Enter current password" />
             </div>
             <div>
               <label className="block text-xs font-medium text-primary-500 mb-1">New Password</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="At least 6 characters" />
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400" placeholder="At least 6 characters" />
             </div>
             <div>
               <label className="block text-xs font-medium text-primary-500 mb-1">Confirm New Password</label>
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Re-enter new password" />
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full border border-primary-200 rounded-lg px-3 py-2 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400" placeholder="Re-enter new password" />
             </div>
             <div className="flex items-center gap-3 pt-2">
-              <button onClick={handlePasswordSave} disabled={saving} className="px-4 py-2 bg-primary-800 text-white text-xs font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              <button onClick={handlePasswordSave} disabled={saving} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700 disabled:opacity-50">
                 {saving ? 'Saving...' : 'Update Password'}
               </button>
               <button onClick={() => { setChangingPassword(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }} className="px-4 py-2 bg-primary-100 text-primary-600 text-xs font-medium rounded-lg hover:bg-primary-200">

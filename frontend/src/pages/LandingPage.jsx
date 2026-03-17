@@ -412,7 +412,7 @@ export default function LandingPage() {
             {/* Sub */}
             <motion.p variants={fadeUp}
               className="mt-5 sm:mt-6 text-base sm:text-lg md:text-xl text-primary-500 max-w-2xl mx-auto leading-relaxed px-2">
-              Streamline your flight dispatcher training certification process.
+              Streamline your Aviation Profession training certification process.
               Generate internationally recognised certificates in seconds.
             </motion.p>
 

@@ -138,7 +138,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={() => searchResults.length > 0 && setSearchOpen(true)}
-              className="pl-10 pr-4 py-2 w-44 sm:w-56 md:w-72 bg-primary-50 border border-primary-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
+              className="pl-10 pr-4 py-2 w-44 sm:w-56 md:w-72 bg-primary-50 border border-primary-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
             />
             {searchQuery && (
               <button
@@ -231,7 +231,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
           >
             <HiOutlineBell className="w-5 h-5 text-primary-500" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-accent-500 rounded-full flex items-center justify-center">
+              <span className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-[9px] font-bold text-white">{unreadCount}</span>
               </span>
             )}
