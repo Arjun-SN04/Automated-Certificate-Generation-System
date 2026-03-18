@@ -319,12 +319,12 @@ export default function Participants() {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-primary-800">My Submissions</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-primary-800">My Submissions</h1>
             <p className="text-sm text-primary-400 mt-1">Your training enrollment records, grouped by training batch</p>
           </div>
-          <Link to="/airline/enrollment/new" className="btn-primary flex items-center gap-2">
+          <Link to="/airline/enrollment/new" className="btn-primary flex items-center gap-2 whitespace-nowrap">
             <HiOutlinePlusCircle className="w-4 h-4" />
             New Enrollment
           </Link>
@@ -390,12 +390,12 @@ export default function Participants() {
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-primary-800">Participants</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-primary-800">Participants</h1>
           <p className="text-sm text-primary-400 mt-1">Manage training participant records</p>
         </div>
-        <Link to="/admin/participants/add" className="btn-primary flex items-center gap-2">
+        <Link to="/admin/participants/add" className="btn-primary flex items-center gap-2 whitespace-nowrap">
           <HiOutlinePlusCircle className="w-4 h-4" />
           Add Participant
         </Link>

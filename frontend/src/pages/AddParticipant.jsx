@@ -191,7 +191,7 @@ function SingleForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
         <div>
           <label className="label">Training Modules</label>
           <p className="text-xs text-primary-400 mb-3">Select all modules completed during recurrent training</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {ALL_MODULES.map(mod => (
               <button
                 key={mod}
@@ -496,7 +496,7 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
           <div>
             <label className="label">Training Modules</label>
             <p className="text-xs text-primary-400 mb-2">Select all modules completed during this recurrent training</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {ALL_MODULES.map(mod => (
                 <button key={mod} type="button" onClick={() => toggleModule(mod)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm text-left transition-all ${
@@ -561,7 +561,7 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
         </div>
       )}
 
-      <div className="card p-4 flex items-center justify-between gap-4">
+      <div className="card p-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm text-primary-600">
           {successCount > 0
             ? <span className="text-emerald-600 font-medium">{successCount} submitted · {pendingCount} pending</span>

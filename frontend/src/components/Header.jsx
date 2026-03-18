@@ -153,7 +153,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
 
           {/* Search results dropdown */}
           {searchOpen && (
-            <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-xl border border-primary-200 shadow-xl z-50 overflow-hidden animate-fade-in">
+            <div className="absolute top-full left-0 mt-2 w-72 sm:w-96 bg-white rounded-xl border border-primary-200 shadow-xl z-50 overflow-hidden animate-fade-in">
               {searching ? (
                 <div className="p-4 flex items-center gap-2 text-primary-400">
                   <div className="w-4 h-4 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
@@ -238,7 +238,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-primary-200 shadow-xl z-50 overflow-hidden animate-fade-in">
+            <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-xl border border-primary-200 shadow-xl z-50 overflow-hidden animate-fade-in">
               <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100">
                 <p className="text-sm font-semibold text-primary-800">Notifications</p>
                 {unreadCount > 0 && (

@@ -457,11 +457,12 @@ router.delete('/airline-by-id/:airlineId', async (req, res) => {
       ],
     });
 
-    // Delete the Airline account document itself
-    await Airline.findByIdAndDelete(airlineId);
+    // NOTE: The Airline account document is intentionally NOT deleted here.
+    // The airline can still log in — only their participant submissions are removed
+    // from the admin view.
 
     res.json({
-      message: `Deleted "${airlineDoc.airlineName}" and ${result.deletedCount} participant(s).`,
+      message: `Removed ${result.deletedCount} participant(s) for "${airlineDoc.airlineName}".`,
       deletedCount: result.deletedCount,
       airlineId,
     });

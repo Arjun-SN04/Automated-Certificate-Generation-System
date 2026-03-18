@@ -95,12 +95,12 @@ export default function Profile() {
           </div>
           <div className="flex-1">
             {editingName ? (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border border-primary-200 rounded-lg px-3 py-1.5 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400"
+                  className="border border-primary-200 rounded-lg px-3 py-1.5 text-sm text-primary-800 focus:outline-none focus:ring-2 focus:ring-accent-400 min-w-0 w-full sm:w-auto"
                   autoFocus
                 />
                 <button onClick={handleNameSave} disabled={saving} className="px-3 py-1.5 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700 disabled:opacity-50">
@@ -128,7 +128,7 @@ export default function Profile() {
       </div>
 
       {/* Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -192,7 +192,7 @@ export default function Profile() {
 
       {/* Change Email */}
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-primary-100 rounded-lg flex items-center justify-center">
               <HiOutlineMail className="w-5 h-5 text-primary-600" />
@@ -200,7 +200,7 @@ export default function Profile() {
             <h3 className="text-base font-bold text-primary-800">Change Email</h3>
           </div>
           {!changingEmail && (
-            <button onClick={() => setChangingEmail(true)} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700">
+            <button onClick={() => setChangingEmail(true)} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700 whitespace-nowrap">
               Change Email
             </button>
           )}
@@ -229,7 +229,7 @@ export default function Profile() {
 
       {/* Change Password */}
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-primary-100 rounded-lg flex items-center justify-center">
               <HiOutlineLockClosed className="w-5 h-5 text-primary-600" />
@@ -237,7 +237,7 @@ export default function Profile() {
             <h3 className="text-base font-bold text-primary-800">Change Password</h3>
           </div>
           {!changingPassword && (
-            <button onClick={() => setChangingPassword(true)} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700">
+            <button onClick={() => setChangingPassword(true)} className="px-4 py-2 bg-accent-600 text-white text-xs font-medium rounded-lg hover:bg-accent-700 whitespace-nowrap">
               Change Password
             </button>
           )}

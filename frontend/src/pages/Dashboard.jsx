@@ -75,7 +75,7 @@ export default function Dashboard() {
       {/* Welcome */}
       <motion.div variants={item} className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-primary-800">
+          <h1 className="text-xl sm:text-2xl font-bold text-primary-800">
             {isAdmin ? 'Welcome back' : `Welcome, ${admin?.airlineName || admin?.name || 'Airline'}`}
           </h1>
           <p className="text-sm text-primary-400 mt-1">
@@ -104,7 +104,7 @@ export default function Dashboard() {
       )}
 
       {/* Stats */}
-      <motion.div variants={item} className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4`}>
+      <motion.div variants={item} className={`grid grid-cols-2 ${isAdmin ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3 sm:gap-4`}>
         {statCards.map((card) => (
           <div key={card.key} className="card p-5">
             <div className="flex items-center justify-between">
@@ -121,7 +121,7 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Quick Actions + Recent Records */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
 
         {/* Quick Actions */}
         <motion.div variants={item} className="card p-6">

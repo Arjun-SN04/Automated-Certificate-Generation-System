@@ -94,28 +94,28 @@ function CertResultModal({ results, onClose }) {
           {/* Certificate list */}
           <div className="divide-y divide-primary-100 max-h-[60vh] overflow-y-auto">
             {results.map((item) => (
-              <div key={item.id} className="px-6 py-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
-                  <HiOutlineDocumentText className="w-5 h-5 text-primary-500" />
+              <div key={item.id} className="px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
+                  <HiOutlineDocumentText className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-primary-800 truncate">{item.name}</p>
                   <p className="text-[11px] text-primary-400 mt-0.5">{item.trainingType} &bull; {item.certId}</p>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     onClick={() => handlePreview(item)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-200 hover:bg-primary-50 text-xs font-medium text-primary-600 transition-colors"
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg border border-primary-200 hover:bg-primary-50 text-xs font-medium text-primary-600 transition-colors"
                   >
                     <HiOutlineEye className="w-3.5 h-3.5" />
-                    Preview
+                    <span className="hidden sm:inline">Preview</span>
                   </button>
                   <button
                     onClick={() => handleDownload(item)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-800 text-xs font-medium text-white transition-colors"
+                    className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-800 text-xs font-medium text-white transition-colors"
                   >
                     <HiOutlineDocumentDownload className="w-3.5 h-3.5" />
-                    Download
+                    <span className="hidden sm:inline">Download</span>
                   </button>
                 </div>
               </div>
@@ -364,9 +364,9 @@ export default function Certificates() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-primary-800">Certificates</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-primary-800">Certificates</h1>
           <p className="text-sm text-primary-400 mt-1">Select participants, then generate their certificates</p>
         </div>
         <button
@@ -437,7 +437,7 @@ export default function Certificates() {
       {/* Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[520px]">
             <thead>
               <tr className="bg-primary-50 border-b border-primary-200">
                 <th className="px-4 py-3 w-10">
@@ -450,10 +450,10 @@ export default function Certificates() {
                   />
                 </th>
                 <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Participant Name</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Airline</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Department</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Training Type</th>
-                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Date</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">Airline</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Department</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Training</th>
+                <th className="text-left text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">Date</th>
                 <th className="text-center text-[10px] font-semibold text-primary-500 uppercase tracking-wider px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -506,14 +506,14 @@ export default function Certificates() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-primary-600">{record.company}</td>
-                    <td className="px-4 py-4 text-sm text-primary-600">{record.department}</td>
+                    <td className="px-4 py-4 text-sm text-primary-600 hidden sm:table-cell">{record.company}</td>
+                    <td className="px-4 py-4 text-sm text-primary-600 hidden md:table-cell">{record.department}</td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${trainingBadgeClass(record.training_type)}`}>
                         {record.training_type}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-primary-500">
+                    <td className="px-4 py-4 text-sm text-primary-500 hidden sm:table-cell">
                       {new Date(record.training_date).toLocaleDateString('en-GB', {
                         day: '2-digit', month: 'short', year: 'numeric',
                       })}

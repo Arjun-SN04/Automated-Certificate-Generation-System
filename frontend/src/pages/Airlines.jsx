@@ -539,7 +539,7 @@ export default function Airlines() {
     const aKey        = airlineKey(airline);
     const airlineId   = airline._id;
     const airlineName = airline.airlineName;
-    if (!window.confirm(`Delete ALL data for "${airlineName}"?\n\nThis removes ${count} participant record(s) and the airline account. Cannot be undone.`)) return;
+    if (!window.confirm(`Remove all submissions for "${airlineName}"?\n\nThis deletes ${count} participant record(s) from the admin view.\nThe airline account and login remain intact. Cannot be undone.`)) return;
     try {
       const res = await deleteAirlineById(airlineId);
       toast.success(res.data.message || `"${airlineName}" deleted`);
@@ -556,7 +556,7 @@ export default function Airlines() {
 
   const handleDeleteSelectedAirlines = async () => {
     if (checkedAirlines.size === 0) { toast.error('Select at least one airline'); return; }
-    if (!window.confirm(`Delete ALL data for ${checkedAirlines.size} airline(s)? This also removes their participant records. Cannot be undone.`)) return;
+    if (!window.confirm(`Remove all submissions for ${checkedAirlines.size} airline(s)?\n\nThis deletes their participant records from the admin view.\nAll airline accounts and logins remain intact. Cannot be undone.`)) return;
     setDeletingAirlines(true);
     const deletedIds = new Set(); let fail = 0;
     for (const airlineId of checkedAirlines) {

@@ -120,7 +120,7 @@ export default function EditParticipant() {
       </button>
 
       <div>
-        <h1 className="text-2xl font-bold text-primary-800">Edit Participant</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary-800">Edit Participant</h1>
         <p className="text-sm text-primary-400 mt-1">
           Update training record — {form.first_name} {form.last_name}
         </p>
@@ -196,7 +196,7 @@ export default function EditParticipant() {
           <div className="animate-fade-in">
             <label className="label">Training Modules</label>
             <p className="text-xs text-primary-400 mb-3">Select completed modules</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ALL_MODULES.map(mod => (
                 <button key={mod} type="button" onClick={() => toggleModule(mod)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm text-left transition-all ${
@@ -228,7 +228,7 @@ export default function EditParticipant() {
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-primary-200">
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-primary-200">
           <button type="button" onClick={() => navigate(-1)} className="btn-outline">Cancel</button>
           <button type="submit" disabled={saving} className="btn-primary">
             {saving ? 'Saving...' : 'Update Record'}
