@@ -46,7 +46,7 @@ export default function Login() {
         const res = await airlineLogin({ email: form.email, password: form.password });
         loginAdmin(res.data.token, { ...res.data.admin, role: 'airline' });
         toast.success(`Welcome, ${res.data.admin.airlineName}!`);
-        navigate('/admin');
+        navigate('/airline');
       }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed. Please check your credentials.');

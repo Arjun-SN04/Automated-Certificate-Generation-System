@@ -38,9 +38,9 @@ function AdminRoute({ children }) {
 
 // Redirects logged-in users away from login/signup
 function GuestRoute({ children }) {
-  const { admin, loading } = useAuth();
+  const { admin, loading, isAdmin } = useAuth();
   if (loading) return null;
-  if (admin) return <Navigate to="/admin" replace />;
+  if (admin) return <Navigate to={isAdmin ? '/admin' : '/airline'} replace />;
   return children;
 }
 
@@ -75,6 +75,14 @@ function App() {
           <Route path="airlines" element={<AdminRoute><Airlines /></AdminRoute>} />
           <Route path="participants/edit/:id" element={<AdminRoute><EditParticipant /></AdminRoute>} />
           <Route path="certificates" element={<AdminRoute><Certificates /></AdminRoute>} />
+        </Route>
+
+        {/* Airline-friendly URL aliases — same pages, nicer URLs for airline users */}
+        <Route path="/airline" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route index element={<Dashboard />} />
+          <Route path="submissions" element={<Participants />} />
+          <Route path="enrollment/new" element={<AddParticipant />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
       </Routes>
     </>

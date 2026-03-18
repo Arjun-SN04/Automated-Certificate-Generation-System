@@ -17,10 +17,10 @@ const adminNavigation = [
 ];
 
 const airlineNavigation = [
-  { name: 'Dashboard',      href: '/admin',                  icon: HiOutlineHome,         exact: true  },
-  { name: 'My Submissions', href: '/admin/participants',     icon: HiOutlineUsers,        exact: true  },
-  { name: 'New Enrollment', href: '/admin/participants/add', icon: HiOutlinePlusCircle,   exact: true  },
-  { name: 'Profile',        href: '/admin/profile',          icon: HiOutlineUserCircle,   exact: false },
+  { name: 'Dashboard',      href: '/airline',              icon: HiOutlineHome,       exact: true  },
+  { name: 'My Submissions', href: '/airline/submissions',  icon: HiOutlineUsers,      exact: true  },
+  { name: 'New Enrollment', href: '/airline/enrollment/new', icon: HiOutlinePlusCircle, exact: true  },
+  { name: 'Profile',        href: '/airline/profile',      icon: HiOutlineUserCircle, exact: false },
 ];
 
 export default function Sidebar({ open, setOpen }) {
@@ -43,7 +43,7 @@ export default function Sidebar({ open, setOpen }) {
       {/* ── Header ── */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 flex-shrink-0">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate(isAdmin ? '/admin' : '/airline')}
           className="flex items-center gap-3 min-w-0 flex-1"
         >
           <img src={logoImg} alt="IFOA" className="h-8 w-auto object-contain flex-shrink-0" />

@@ -84,7 +84,7 @@ export default function Dashboard() {
               : 'Submit and track your training enrollment records'}
           </p>
         </div>
-        <Link to="/admin/participants/add" className="btn-primary flex items-center gap-2">
+        <Link to={isAdmin ? '/admin/participants/add' : '/airline/enrollment/new'} className="btn-primary flex items-center gap-2">
           <HiOutlinePlusCircle className="w-4 h-4" />
           {isAdmin ? 'New Record' : 'New Enrollment'}
         </Link>
@@ -128,7 +128,7 @@ export default function Dashboard() {
           <h2 className="text-base font-bold text-primary-800 mb-4">Quick Actions</h2>
           <div className="space-y-3">
             <Link
-              to="/admin/participants/add"
+              to={isAdmin ? '/admin/participants/add' : '/airline/enrollment/new'}
               className="flex items-center gap-3 p-3 rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors group"
             >
               <div className="w-9 h-9 bg-accent-50 rounded-lg flex items-center justify-center">
@@ -162,7 +162,7 @@ export default function Dashboard() {
             )}
 
             <Link
-              to={isAdmin ? '/admin/airlines' : '/admin/participants'}
+              to={isAdmin ? '/admin/airlines' : '/airline/submissions'}
               className="flex items-center gap-3 p-3 rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors group"
             >
               <div className="w-9 h-9 bg-violet-50 rounded-lg flex items-center justify-center">
@@ -187,7 +187,7 @@ export default function Dashboard() {
             <h2 className="text-base font-bold text-primary-800">
               {isAdmin ? 'Recent Records' : 'My Recent Submissions'}
             </h2>
-            <Link to="/admin/participants" className="text-xs font-medium text-accent-600 hover:text-accent-700">
+            <Link to={isAdmin ? '/admin/participants' : '/airline/submissions'} className="text-xs font-medium text-accent-600 hover:text-accent-700">
               View All
             </Link>
           </div>

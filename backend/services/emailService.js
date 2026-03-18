@@ -72,7 +72,16 @@ function buildConfirmationHtml({ airlineName, contactName, participants, trainin
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Submission Confirmation – IFOA</title>
+  <title>Submission Confirmation  IFOA</title>
+  <style>
+    /* Force white background on logo bar — defeats Gmail/Apple Mail dark mode */
+    .logo-bar, .logo-bar td, .logo-bar table { background-color: #ffffff !important; }
+    @media (prefers-color-scheme: dark) {
+      .logo-bar, .logo-bar td, .logo-bar table { background-color: #ffffff !important; }
+      .logo-bar img { background-color: #ffffff !important; }
+    }
+    [data-ogsc] .logo-bar, [data-ogsc] .logo-bar td { background-color: #ffffff !important; }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
@@ -81,20 +90,26 @@ function buildConfirmationHtml({ airlineName, contactName, participants, trainin
       style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
       <!-- ── HEADER: white logo bar + dark title bar ── -->
-      <!-- White logo strip -->
+      <!-- White logo strip: bgcolor attr + inline style + class all set to white to defeat dark mode -->
       <tr>
-        <td bgcolor="#ffffff" style="background:#ffffff !important;background-color:#ffffff !important;padding:20px 40px 16px;border-bottom:3px solid #0f172a;">
-          <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff"
-            style="background:#ffffff !important;background-color:#ffffff !important;">
+        <td bgcolor="#ffffff" class="logo-bar"
+          style="background-color:#ffffff;padding:20px 40px 16px;border-bottom:3px solid #0f172a;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+            bgcolor="#ffffff" style="background-color:#ffffff;">
             <tr>
-              <td bgcolor="#ffffff" style="vertical-align:middle;background:#ffffff !important;background-color:#ffffff !important;padding:8px 12px 8px 0;border-radius:8px;">
-                <img src="cid:ifoa_logo" alt="IFOA"
-                  style="width:130px;height:auto;display:block;"
-                  width="130" />
+              <!-- Logo cell: extra div wrapper with white bg so dark-mode clients can't invert it -->
+              <td bgcolor="#ffffff" width="150"
+                style="background-color:#ffffff;vertical-align:middle;padding:6px 16px 6px 0;">
+                <div style="background-color:#ffffff;display:inline-block;padding:6px 8px;border-radius:6px;">
+                  <img src="cid:ifoa_logo" alt="IFOA Logo"
+                    width="120" height="auto"
+                    style="display:block;width:120px;max-width:120px;height:auto;border:0;" />
+                </div>
               </td>
-              <td align="right" bgcolor="#ffffff" style="vertical-align:middle;background:#ffffff !important;background-color:#ffffff !important;">
+              <td bgcolor="#ffffff" align="right"
+                style="background-color:#ffffff;vertical-align:middle;">
                 <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:1.5px;
-                  color:#64748b;text-transform:uppercase;">International Flight Operations Academy</p>
+                  color:#64748b !important;text-transform:uppercase;">International Flight Operations Academy</p>
               </td>
             </tr>
           </table>
@@ -206,7 +221,7 @@ function buildConfirmationHtml({ airlineName, contactName, participants, trainin
               <p style="margin:0;font-size:13px;color:#3b4f9e;line-height:1.6;">
                 Your records have been received and are now under review by the IFOA team.
                 Certificates will be generated and shared once the training is verified.
-                All submitted records are locked — only IFOA administrators can make changes.
+                All submitted records are locked only IFOA administrators can make changes.
               </p>
             </td></tr>
           </table>

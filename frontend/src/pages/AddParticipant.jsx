@@ -599,7 +599,7 @@ export default function AddParticipant() {
       .catch(() => {}); // silently ignore — dropdown just shows empty
   }, [isAdmin]);
 
-  const handleSuccess = () => navigate(isAdmin ? '/admin/airlines' : '/admin/participants');
+  const handleSuccess = () => navigate(isAdmin ? '/admin/airlines' : '/airline/submissions');
 
   const TABS = [
     { val: 'single', label: 'Single',   Icon: HiOutlineUser },
@@ -619,7 +619,7 @@ export default function AddParticipant() {
             {isAdmin ? 'Add Participant' : 'New Enrollment'}
           </h1>
           <p className="text-sm text-primary-400 mt-1">
-            {isAdmin ? 'Create one or multiple training records' : 'Submit training enrollments for your airline'}
+            {isAdmin ? 'Create one or multiple training records' : 'Submit training enrollments for your airline — records are locked after submission'}
           </p>
         </div>
         <div className="flex items-center gap-1 p-1 bg-primary-100 rounded-xl self-start sm:self-auto">

@@ -324,7 +324,7 @@ export default function Participants() {
             <h1 className="text-2xl font-bold text-primary-800">My Submissions</h1>
             <p className="text-sm text-primary-400 mt-1">Your training enrollment records, grouped by training batch</p>
           </div>
-          <Link to="/admin/participants/add" className="btn-primary flex items-center gap-2">
+          <Link to="/airline/enrollment/new" className="btn-primary flex items-center gap-2">
             <HiOutlinePlusCircle className="w-4 h-4" />
             New Enrollment
           </Link>
