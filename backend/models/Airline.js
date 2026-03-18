@@ -22,6 +22,9 @@ airlineSchema.methods.comparePassword = async function (candidatePassword) {
 airlineSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  // Ensure _id is always a plain string so frontend comparisons work reliably
+  obj._id = String(obj._id);
+  obj.id  = obj._id;
   return obj;
 };
 

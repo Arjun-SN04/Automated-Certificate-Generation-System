@@ -38,6 +38,13 @@
   }
 }
 
+/* Force date/time inputs to always show light (white) calendar picker */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: light;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

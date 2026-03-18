@@ -20,7 +20,7 @@ import {
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import {
-  getParticipantsByAirline, deleteParticipant, deleteAirlineData,
+  getParticipantsByAirline, deleteParticipant, deleteAirlineData, deleteAirlineById,
   generateCertificateBlob, generateCertificateWithModules,
   updateFullCertId, getCertCounters, resetCertCounter, resetAllCertCounters,
   updateNdgScore,
@@ -397,6 +397,12 @@ export default function Airlines() {
   const ALL_TYPES = ['FDI', 'FDR', 'FDA', 'FTL', 'HF', 'NDG', 'GD', 'TCD'];
 
   // ── Data fetch ───────────────────────────────────────────────────────────────
+  // Unique key for an airline — always prefer _id (guaranteed unique),
+  // fall back to email (also unique), never use airlineName alone.
+  // Use airline.id (plain string) or airline._id — both are now guaranteed strings from
+  // the backend toJSON(). Fall back to email (unique) only if somehow both are missing.
+  const airlineKey = (airline) => String(airline.id || airline._id || airline.email || airline.airlineName);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -404,7 +410,10 @@ export default function Airlines() {
       setData(res.data);
       setExpanded(prev => {
         const init = {};
-        res.data.forEach(({ airline }) => { init[airline.airlineName] = prev[airline.airlineName] ?? false; });
+        res.data.forEach(({ airline }) => {
+          const key = airline._id || airline.email || airline.airlineName;
+          init[key] = prev[key] ?? false;
+        });
         return init;
       });
     } catch { toast.error('Failed to load airline data'); }
@@ -500,10 +509,12 @@ export default function Airlines() {
     const all = ids.every(id => checked.has(id));
     setChecked(prev => { const n = new Set(prev); all ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id)); return n; });
   };
-  const allAirlinesChecked = data.length > 0 && data.every(({ airline }) => checkedAirlines.has(airline.airlineName));
-  const toggleAllAirlines  = () => allAirlinesChecked ? setCheckedAirlines(new Set()) : setCheckedAirlines(new Set(data.map(({ airline }) => airline.airlineName)));
-  const toggleAirline      = name => setCheckedAirlines(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; });
-  const toggle             = name => setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
+  // Always use airlineKey() — never raw airlineName — so two accounts with the
+  // same airline name are never treated as the same entry.
+  const allAirlinesChecked = data.length > 0 && data.every(({ airline }) => checkedAirlines.has(airlineKey(airline)));
+  const toggleAllAirlines  = () => allAirlinesChecked ? setCheckedAirlines(new Set()) : setCheckedAirlines(new Set(data.map(({ airline }) => airlineKey(airline))));
+  const toggleAirline      = key => setCheckedAirlines(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggle             = key => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
   // ── Delete helpers ───────────────────────────────────────────────────────────
   const handleDelete = async (id, name) => {
@@ -524,28 +535,45 @@ export default function Airlines() {
     fail === 0 ? toast.success(`${ok} record${ok !== 1 ? 's' : ''} deleted`) : toast.error(`${ok} deleted, ${fail} failed`);
   };
 
-  const handleDeleteAirlineData = async (name, count) => {
-    if (!window.confirm(`Delete ALL data for "${name}"?\n\nThis removes ${count} record(s). Cannot be undone.`)) return;
+  const handleDeleteAirlineData = async (airline, count) => {
+    const aKey        = airlineKey(airline);
+    const airlineId   = airline._id;
+    const airlineName = airline.airlineName;
+    if (!window.confirm(`Delete ALL data for "${airlineName}"?\n\nThis removes ${count} participant record(s) and the airline account. Cannot be undone.`)) return;
     try {
-      const res = await deleteAirlineData(name);
-      toast.success(res.data.message || `"${name}" deleted`);
-      setData(prev => prev.filter(d => d.airline.airlineName !== name));
-      setChecked(prev => { const n = new Set(prev); data.find(d => d.airline.airlineName === name)?.participants.forEach(p => n.delete(p.id || p._id)); return n; });
-      setCheckedAirlines(prev => { const n = new Set(prev); n.delete(name); return n; });
+      const res = await deleteAirlineById(airlineId);
+      toast.success(res.data.message || `"${airlineName}" deleted`);
+      // Remove ONLY this exact airline by its unique key — others with the same name stay
+      setData(prev => prev.filter(d => airlineKey(d.airline) !== aKey));
+      setChecked(prev => {
+        const n = new Set(prev);
+        data.find(d => airlineKey(d.airline) === aKey)?.participants.forEach(p => n.delete(p.id || p._id));
+        return n;
+      });
+      setCheckedAirlines(prev => { const n = new Set(prev); n.delete(aKey); return n; });
     } catch (err) { toast.error(err.response?.data?.error || 'Failed to delete'); }
   };
 
   const handleDeleteSelectedAirlines = async () => {
     if (checkedAirlines.size === 0) { toast.error('Select at least one airline'); return; }
-    if (!window.confirm(`Delete ALL data for ${checkedAirlines.size} airline(s)? Cannot be undone.`)) return;
+    if (!window.confirm(`Delete ALL data for ${checkedAirlines.size} airline(s)? This also removes their participant records. Cannot be undone.`)) return;
     setDeletingAirlines(true);
-    const deleted = new Set(); let fail = 0;
-    for (const name of checkedAirlines) { try { await deleteAirlineData(name); deleted.add(name); } catch { fail++; } }
+    const deletedIds = new Set(); let fail = 0;
+    for (const airlineId of checkedAirlines) {
+      try { await deleteAirlineById(airlineId); deletedIds.add(airlineId); } catch { fail++; }
+    }
     setDeletingAirlines(false);
-    setData(prev => prev.filter(d => !deleted.has(d.airline.airlineName)));
+    // Remove only the exact airlines whose key was deleted — others with same name are unaffected
+    setData(prev => prev.filter(d => !deletedIds.has(airlineKey(d.airline))));
     setCheckedAirlines(new Set());
-    setChecked(prev => { const n = new Set(prev); data.forEach(({ airline, participants }) => { if (deleted.has(airline.airlineName)) participants.forEach(p => n.delete(p.id || p._id)); }); return n; });
-    fail === 0 ? toast.success(`${deleted.size} airline${deleted.size > 1 ? 's' : ''} deleted`) : toast.error(`${deleted.size} deleted, ${fail} failed`);
+    setChecked(prev => {
+      const n = new Set(prev);
+      data.forEach(({ airline, participants }) => {
+        if (deletedIds.has(airlineKey(airline))) participants.forEach(p => n.delete(p.id || p._id));
+      });
+      return n;
+    });
+    fail === 0 ? toast.success(`${deletedIds.size} airline${deletedIds.size > 1 ? 's' : ''} deleted`) : toast.error(`${deletedIds.size} deleted, ${fail} failed`);
   };
 
   // ── Certificate generation ───────────────────────────────────────────────────
@@ -799,23 +827,24 @@ export default function Airlines() {
 
       {/* ── Airline Groups ── */}
       {!loading && filtered.map(({ airline, participants }) => {
+        const aKey     = airlineKey(airline);
         const groupIds   = participants.map(p => p.id || p._id);
         const groupAllCk = groupIds.length > 0 && groupIds.every(id => checked.has(id));
         const groupSome  = groupIds.some(id => checked.has(id));
 
         return (
-          <div key={airline.airlineName} className="card overflow-hidden">
+          <div key={aKey} className="card overflow-hidden">
 
             {/* ── Airline header ── */}
             <div className="flex items-center gap-2 px-3 sm:px-5 py-3 sm:py-4 flex-wrap">
               {/* Airline checkbox */}
-              <div onClick={e => { e.stopPropagation(); toggleAirline(airline.airlineName); }}
-                className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer flex-shrink-0 transition-colors ${checkedAirlines.has(airline.airlineName) ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'}`}>
-                {checkedAirlines.has(airline.airlineName) && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+              <div onClick={e => { e.stopPropagation(); toggleAirline(aKey); }}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer flex-shrink-0 transition-colors ${checkedAirlines.has(aKey) ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'}`}>
+                {checkedAirlines.has(aKey) && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
               </div>
 
               {/* Airline info — clickable to expand */}
-              <button onClick={() => toggle(airline.airlineName)} className="flex items-center gap-3 flex-1 text-left min-w-0">
+              <button onClick={() => toggle(aKey)} className="flex items-center gap-3 flex-1 text-left min-w-0">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary-800 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-xs sm:text-sm font-bold">{mkInitials(airline.airlineName)}</span>
                 </div>
@@ -826,10 +855,11 @@ export default function Airlines() {
                       <HiOutlineUsers className="w-3 h-3" />{participants.length}
                     </span>
                   </div>
+                  {/* Always show email — it’s the unique identifier that distinguishes two airlines with the same name */}
                   {airline.email && (
                     <div className="flex items-center gap-1 mt-0.5">
                       <HiOutlineMail className="w-3 h-3 text-primary-400" />
-                      <p className="text-[11px] text-primary-400 truncate">{airline.email}</p>
+                      <p className="text-[11px] font-medium text-primary-500 truncate">{airline.email}</p>
                     </div>
                   )}
                 </div>
@@ -837,7 +867,7 @@ export default function Airlines() {
 
               {/* Airline action buttons */}
               <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                {expanded[airline.airlineName] && participants.length > 0 && (
+                {expanded[aKey] && participants.length > 0 && (
                   <>
                     <button onClick={() => toggleGroupAll(participants)}
                       className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${groupAllCk ? 'bg-primary-800 border-primary-800 text-white' : 'border-primary-200 text-primary-600 hover:bg-primary-50'}`}>
@@ -850,20 +880,20 @@ export default function Airlines() {
                     </button>
                   </>
                 )}
-                <button onClick={() => handleDeleteAirlineData(airline.airlineName, participants.length)}
+                <button onClick={() => handleDeleteAirlineData(airline, participants.length)}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold border-red-300 text-red-700 bg-red-50 hover:bg-red-100">
                   <HiOutlineTrash className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Delete Airline</span>
                 </button>
-                <button onClick={() => toggle(airline.airlineName)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                  {expanded[airline.airlineName] ? <HiOutlineChevronUp className="w-5 h-5 text-primary-400" /> : <HiOutlineChevronDown className="w-5 h-5 text-primary-400" />}
+                <button onClick={() => toggle(aKey)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                  {expanded[aKey] ? <HiOutlineChevronUp className="w-5 h-5 text-primary-400" /> : <HiOutlineChevronDown className="w-5 h-5 text-primary-400" />}
                 </button>
               </div>
             </div>
 
             {/* ── Participants ── */}
             <AnimatePresence initial={false}>
-              {expanded[airline.airlineName] && participants.length > 0 && (
+              {expanded[aKey] && participants.length > 0 && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
 
@@ -1049,7 +1079,7 @@ export default function Airlines() {
               )}
             </AnimatePresence>
 
-            {expanded[airline.airlineName] && participants.length === 0 && (
+            {expanded[aKey] && participants.length === 0 && (
               <div className="border-t border-primary-100 px-5 py-6 text-center text-sm text-primary-400">
                 No participants submitted by this airline yet.
               </div>

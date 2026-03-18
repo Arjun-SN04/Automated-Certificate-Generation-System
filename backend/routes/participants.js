@@ -430,6 +430,47 @@ router.delete('/airline/:airlineName', async (req, res) => {
   }
 });
 
+// ─── DELETE airline account + all their participants by airline _id (admin only) ──────
+// Safe: uses MongoDB _id so two accounts with same airlineName never collide.
+router.delete('/airline-by-id/:airlineId', async (req, res) => {
+  try {
+    if (req.admin.role === 'airline') {
+      return res.status(403).json({ error: 'Only admins can perform bulk deletions.' });
+    }
+    const { airlineId } = req.params;
+
+    const airlineDoc = await Airline.findById(airlineId);
+    if (!airlineDoc) return res.status(404).json({ error: 'Airline not found.' });
+
+    // Delete participants owned by this exact account (submitted_by = _id)
+    // Also catch legacy records that have no submitted_by but match the name
+    const result = await Participant.deleteMany({
+      $or: [
+        { submitted_by: airlineDoc._id },
+        {
+          submitted_by: null,
+          $or: [
+            { airline_name: airlineDoc.airlineName },
+            { company:      airlineDoc.airlineName },
+          ],
+        },
+      ],
+    });
+
+    // Delete the Airline account document itself
+    await Airline.findByIdAndDelete(airlineId);
+
+    res.json({
+      message: `Deleted "${airlineDoc.airlineName}" and ${result.deletedCount} participant(s).`,
+      deletedCount: result.deletedCount,
+      airlineId,
+    });
+  } catch (err) {
+    console.error('DELETE /participants/airline-by-id error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── DELETE single participant (admin only) ───────────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
