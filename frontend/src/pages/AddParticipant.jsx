@@ -11,7 +11,7 @@ import {
   HiOutlineExclamationCircle,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { createParticipant, getAirlinesList } from '../api';
+import { createParticipant, getAirlinesList, sendSubmissionConfirmation } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 const TRAINING_TYPES = [
@@ -75,7 +75,16 @@ function SingleForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
     }
     try {
       setSaving(true);
-      await createParticipant(form);
+      const saved = await createParticipant(form);
+      // Send one confirmation email (airline only — fire-and-forget)
+      if (!isAdmin) {
+        sendSubmissionConfirmation({
+          participants: [{ first_name: saved.data.first_name, last_name: saved.data.last_name, department: saved.data.department }],
+          trainingType: saved.data.training_type,
+          trainingDate: saved.data.training_date,
+          endDate:      saved.data.end_date || null,
+        }).catch(() => {}); // silent — email errors never block the UI
+      }
       toast.success('Participant added successfully');
       onSuccess();
     } catch (err) {
@@ -352,6 +361,9 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
 
     setSaving(true);
     let successCount = 0, failCount = 0;
+    // Track saved participants in a plain local array (React state updates are async
+    // and would not be readable immediately after the loop)
+    const savedParticipants = [];
 
     for (const row of pending) {
       try {
@@ -367,6 +379,12 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
           modules:       shared.modules,
         });
         setResults(prev => ({ ...prev, [row.id]: { status: 'success' } }));
+        // Record in local array so we can use it synchronously below
+        savedParticipants.push({
+          first_name: row.first_name.trim(),
+          last_name:  row.last_name.trim(),
+          department: shared.department.trim(),
+        });
         successCount++;
       } catch (err) {
         const msg = err.response?.data?.error || 'Submission failed';
@@ -376,6 +394,17 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
     }
 
     setSaving(false);
+
+    // Send ONE confirmation email for all successfully saved participants (airline only)
+    if (!isAdmin && savedParticipants.length > 0) {
+      sendSubmissionConfirmation({
+        participants: savedParticipants,
+        trainingType: shared.training_type,
+        trainingDate: shared.training_date,
+        endDate:      shared.end_date || null,
+      }).catch(() => {}); // silent — never block the UI
+    }
+
     if (failCount === 0) {
       toast.success(`${successCount} participant${successCount > 1 ? 's' : ''} added successfully!`);
       setDone(true);

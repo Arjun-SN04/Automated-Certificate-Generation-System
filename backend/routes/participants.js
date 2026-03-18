@@ -3,6 +3,7 @@ const router = express.Router();
 const Participant = require('../models/Participant');
 const Airline = require('../models/Airline');
 const { authMiddleware } = require('./auth');
+const { sendSubmissionConfirmation } = require('../services/emailService');
 
 // All participant routes require a valid token
 router.use(authMiddleware);
@@ -13,44 +14,35 @@ router.get('/', async (req, res) => {
     const { search, training_type, company } = req.query;
     const filter = {};
 
-    // DEBUG: Log what's in the JWT for airline users
+    // Airlines see ONLY their own submissions
     if (req.admin.role === 'airline') {
-      console.log('DEBUG: Airline user request', {
-        id: req.admin.id,
-        email: req.admin.email,
-        name: req.admin.name,
-        airlineName: req.admin.airlineName,
-        role: req.admin.role,
-      });
-    }
-
-    // Airlines see their own submissions
-    if (req.admin.role === 'airline') {
-      const airlineFilters = [];
-      
-      // Primary: use submitted_by ID if available (most reliable)
-      if (req.admin.id) {
-        airlineFilters.push({ submitted_by: req.admin.id });
+      if (!req.admin.id) {
+        // No ID in token — cannot safely identify ownership, return nothing
+        return res.json([]);
       }
-      
-      // Fallback: match by airline_name or company (for seed data and imported records)
+
+      // PRIMARY filter: match by submitted_by (MongoDB _id of the airline account).
+      // This is the ONLY safe filter — two airline accounts with the same airlineName
+      // (e.g. both named "indigo") must NOT see each other's data.
+      const airlineFilters = [{ submitted_by: req.admin.id }];
+
+      // LEGACY fallback: for old records that were created before submitted_by existed
+      // (submitted_by === null), also match by airline_name/company name.
+      // The submitted_by: null condition ensures a record owned by another airline
+      // (which has a different submitted_by ObjectId) is never accidentally included.
       if (req.admin.airlineName) {
-        const airlineRegex = new RegExp(`^${req.admin.airlineName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        const escaped = req.admin.airlineName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const airlineRegex = new RegExp(`^${escaped}$`, 'i');
         airlineFilters.push({
+          submitted_by: null,
           $or: [
             { airline_name: airlineRegex },
             { company: airlineRegex },
-          ]
+          ],
         });
       }
-      
-      // If we have any filters, use them with OR (so either submitted_by matches OR name matches)
-      if (airlineFilters.length > 0) {
-        filter.$or = airlineFilters;
-      } else {
-        // No way to identify airline's submissions — return empty results
-        return res.json([]);
-      }
+
+      filter.$or = airlineFilters;
     }
 
     if (search) {
@@ -90,21 +82,25 @@ router.get('/by-airline', async (req, res) => {
       return res.status(403).json({ error: 'Admin access required.' });
     }
 
-    const airlines      = await Airline.find({}).sort({ airlineName: 1 });
-    const participants  = await Participant.find({}).sort({ created_at: -1 });
+    const airlines     = await Airline.find({}).sort({ airlineName: 1 });
+    const participants = await Participant.find({}).sort({ created_at: -1 });
 
     const result = airlines.map((a) => ({
       airline: a.toJSON(),
       participants: participants.filter(
-        (p) => p.company === a.airlineName || p.airline_name === a.airlineName
+        (p) =>
+          (p.submitted_by && String(p.submitted_by) === String(a._id)) ||
+          (!p.submitted_by && (p.company === a.airlineName || p.airline_name === a.airlineName))
       ),
     }));
 
     // Orphaned participants not matched to any registered airline
-    const known = new Set(airlines.map((a) => a.airlineName));
-    const orphaned = participants.filter(
-      (p) => !known.has(p.company) && !known.has(p.airline_name)
-    );
+    const knownIds   = new Set(airlines.map((a) => String(a._id)));
+    const knownNames = new Set(airlines.map((a) => a.airlineName));
+    const orphaned = participants.filter((p) => {
+      if (p.submitted_by) return !knownIds.has(String(p.submitted_by));
+      return !knownNames.has(p.company) && !knownNames.has(p.airline_name);
+    });
     if (orphaned.length) {
       result.push({
         airline: { airlineName: 'Other / Unassigned', email: '' },
@@ -119,7 +115,7 @@ router.get('/by-airline', async (req, res) => {
   }
 });
 
-// ─── GET all airline names (admin only) ─────────────────────────────────────
+// ─── GET all airline names (admin only) ──────────────────────────────────────
 router.get('/airlines', async (req, res) => {
   try {
     if (req.admin.role === 'airline') {
@@ -138,8 +134,12 @@ router.get('/:id', async (req, res) => {
     const participant = await Participant.findById(req.params.id);
     if (!participant) return res.status(404).json({ error: 'Participant not found' });
 
-    if (req.admin.role === 'airline' && participant.airline_name !== req.admin.airlineName) {
-      return res.status(403).json({ error: 'Access denied.' });
+    if (req.admin.role === 'airline') {
+      const ownedById   = participant.submitted_by && String(participant.submitted_by) === String(req.admin.id);
+      const ownedByName = !participant.submitted_by && participant.airline_name === req.admin.airlineName;
+      if (!ownedById && !ownedByName) {
+        return res.status(403).json({ error: 'Access denied.' });
+      }
     }
 
     res.json(participant);
@@ -152,31 +152,26 @@ router.get('/:id', async (req, res) => {
 // ─── CREATE participant ───────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    console.log('POST /participants body:', JSON.stringify(req.body));
-    console.log('POST /participants user:', req.admin?.role, req.admin?.airlineName);
-
     const {
       first_name, last_name,
-      participant_name,          // fallback for legacy callers
+      participant_name,
       company, department,
       training_type, training_date,
       end_date, location, modules,
     } = req.body;
 
-    // Resolve names — prefer split fields, fall back to full name
     const fName = (first_name || '').trim()
       || (participant_name ? participant_name.trim().split(' ')[0] : '');
     const lName = (last_name || '').trim()
       || (participant_name ? participant_name.trim().split(' ').slice(1).join(' ') : '');
 
-    // Manual validation with clear messages
     const missing = [];
-    if (!fName)          missing.push('First name');
-    if (!lName)          missing.push('Last name');
-    if (!company)        missing.push('Airline name');
-    if (!department)     missing.push('Department');
-    if (!training_type)  missing.push('Training type');
-    if (!training_date)  missing.push('Training date');
+    if (!fName)         missing.push('First name');
+    if (!lName)         missing.push('Last name');
+    if (!company)       missing.push('Airline name');
+    if (!department)    missing.push('Department');
+    if (!training_type) missing.push('Training type');
+    if (!training_date) missing.push('Training date');
 
     if (missing.length) {
       return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
@@ -269,7 +264,14 @@ router.post('/bulk', async (req, res) => {
         });
 
         await doc.save();
-        results.push({ success: true, id: doc._id, participant_name: doc.participant_name });
+        results.push({
+          success: true,
+          id: doc._id,
+          participant_name: doc.participant_name,
+          first_name: doc.first_name,
+          last_name: doc.last_name,
+          department: doc.department,
+        });
       } catch (err) {
         results.push({ success: false, error: err.message });
       }
@@ -279,6 +281,36 @@ router.post('/bulk', async (req, res) => {
     res.status(207).json({ results, successCount, failCount: rows.length - successCount });
   } catch (err) {
     console.error('POST /participants/bulk error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── SEND SUBMISSION CONFIRMATION EMAIL (airline only) ───────────────────────
+router.post('/send-confirmation', async (req, res) => {
+  try {
+    if (req.admin.role !== 'airline') {
+      return res.status(403).json({ error: 'Airline access only.' });
+    }
+    const { participants, trainingType, trainingDate, endDate } = req.body;
+    if (!Array.isArray(participants) || participants.length === 0) {
+      return res.status(400).json({ error: 'participants array required.' });
+    }
+    const airlineDoc = await Airline.findById(req.admin.id);
+    if (!airlineDoc?.email) {
+      return res.status(404).json({ error: 'Airline email not found.' });
+    }
+    sendSubmissionConfirmation({
+      toEmail:     airlineDoc.email,
+      airlineName: airlineDoc.airlineName,
+      contactName: req.admin.name,
+      participants,
+      trainingType,
+      trainingDate,
+      endDate: endDate || null,
+    });
+    res.json({ message: 'Confirmation email queued.' });
+  } catch (err) {
+    console.error('POST /send-confirmation error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -328,7 +360,34 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ─── PATCH cert_sequence only (admin only) ──────────────────────────────────
+// ─── PATCH ndg_score (admin only) ────────────────────────────────────────────
+router.patch('/:id/ndg-score', async (req, res) => {
+  try {
+    if (req.admin.role === 'airline') {
+      return res.status(403).json({ error: 'Only admins can update the NDG score.' });
+    }
+    const { ndg_score } = req.body;
+    if (ndg_score === undefined || ndg_score === null || String(ndg_score).trim() === '') {
+      return res.status(400).json({ error: 'ndg_score is required.' });
+    }
+    const score = Number(ndg_score);
+    if (isNaN(score) || score < 0 || score > 100) {
+      return res.status(400).json({ error: 'ndg_score must be a number between 0 and 100.' });
+    }
+    const doc = await Participant.findByIdAndUpdate(
+      req.params.id,
+      { ndg_score: score },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ error: 'Participant not found' });
+    res.json(doc);
+  } catch (err) {
+    console.error('PATCH ndg-score error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── PATCH cert_sequence only (admin only) ───────────────────────────────────
 router.patch('/:id/cert-sequence', async (req, res) => {
   try {
     if (req.admin.role === 'airline') {
@@ -352,8 +411,6 @@ router.patch('/:id/cert-sequence', async (req, res) => {
 });
 
 // ─── DELETE all participants for an airline (admin only) ──────────────────────
-// IMPORTANT: This route must be defined BEFORE /:id to avoid Express matching
-// "airline" as an :id parameter.
 router.delete('/airline/:airlineName', async (req, res) => {
   try {
     if (req.admin.role === 'airline') {
@@ -379,10 +436,8 @@ router.delete('/:id', async (req, res) => {
     if (req.admin.role === 'airline') {
       return res.status(403).json({ error: 'Only admins can delete records.' });
     }
-
     const deleted = await Participant.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Participant not found' });
-
     res.json({ message: 'Participant deleted successfully' });
   } catch (err) {
     console.error('DELETE /participants/:id error:', err.message);
@@ -390,7 +445,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ─── PATCH /:id/full-cert-id — update full cert number + year (admin only) ─────────
+// ─── PATCH /:id/full-cert-id (admin only) ────────────────────────────────────
 router.patch('/:id/full-cert-id', async (req, res) => {
   try {
     if (req.admin.role === 'airline') return res.status(403).json({ error: 'Admins only' });
@@ -403,12 +458,13 @@ router.patch('/:id/full-cert-id', async (req, res) => {
     const participant = await Participant.findById(req.params.id);
     if (!participant) return res.status(404).json({ error: 'Participant not found' });
 
-    // Check duplicate: same training_type + same seq, different participant
-    const dup = await Participant.findOne({ _id: { $ne: req.params.id }, training_type: participant.training_type, cert_sequence: seq });
+    const dup = await Participant.findOne({
+      _id: { $ne: req.params.id },
+      training_type: participant.training_type,
+      cert_sequence: seq,
+    });
     if (dup) return res.status(409).json({ error: `This number is already used by ${dup.participant_name}` });
 
-    participant.cert_sequence      = seq;
-    participant.cert_year_override = year;   // saved on schema via mixed/strict:false
     await Participant.findByIdAndUpdate(req.params.id, { cert_sequence: seq, cert_year_override: year });
     res.json({ message: 'Updated', cert_sequence: seq, cert_year: year });
   } catch (err) {
@@ -416,6 +472,5 @@ router.patch('/:id/full-cert-id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 module.exports = router;

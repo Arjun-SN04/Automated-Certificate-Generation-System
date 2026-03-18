@@ -23,6 +23,7 @@ import {
   getParticipantsByAirline, deleteParticipant, deleteAirlineData,
   generateCertificateBlob, generateCertificateWithModules,
   updateFullCertId, getCertCounters, resetCertCounter, resetAllCertCounters,
+  updateNdgScore,
 } from '../api';
 import ModuleSelector from '../components/ModuleSelector';
 
@@ -230,7 +231,7 @@ function CounterResetModal({ open, onClose, counters, ALL_TYPES, resetting, onRe
 }
 
 // ─── Mobile participant card (replaces table row on small screens) ─────────────
-function ParticipantCard({ p, checked, onCheck, onPreview, onDownload, onEdit, onDelete, downloadingId, certEdits, onStartEdit, onCancelEdit, onSaveEdit, setCertEdits }) {
+function ParticipantCard({ p, checked, onCheck, onPreview, onDownload, onEdit, onDelete, downloadingId, certEdits, onStartEdit, onCancelEdit, onSaveEdit, setCertEdits, ndgScores, setNdgScores, onNdgScoreSave }) {
   const pid      = p.id || p._id;
   const fullName = p.participant_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
   const isCk     = checked.has(pid);
@@ -303,6 +304,38 @@ function ParticipantCard({ p, checked, onCheck, onPreview, onDownload, onEdit, o
         )}
       </div>
 
+      {/* NDG Score widget (mobile) */}
+      {p.training_type === 'NDG' && (() => {
+        const scoreEntry = ndgScores?.[pid];
+        const currentVal = scoreEntry !== undefined ? scoreEntry.value : (p.ndg_score != null ? String(p.ndg_score) : '');
+        const saving     = scoreEntry?.saving || false;
+        const saved      = scoreEntry?.saved  || false;
+        return (
+          <div className="mt-2 ml-8 flex items-center gap-1.5">
+            <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+              <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wide">Score</span>
+              <input
+                type="number" min="0" max="100"
+                placeholder="0-100"
+                value={currentVal}
+                onChange={e => setNdgScores(prev => ({ ...prev, [pid]: { value: e.target.value, saving: false, saved: false } }))}
+                onKeyDown={e => { if (e.key === 'Enter') onNdgScoreSave(pid); }}
+                className="w-14 px-1 py-0 text-[11px] bg-transparent border-none outline-none text-amber-800 font-semibold placeholder-amber-300"
+                disabled={saving}
+              />
+              <span className="text-[10px] text-amber-500">%</span>
+            </div>
+            <button
+              onClick={() => onNdgScoreSave(pid)}
+              disabled={saving || !currentVal}
+              className="flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-semibold bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50 transition-colors"
+            >
+              {saving ? <Spin cls="w-3 h-3 border-2 border-white/40 border-t-white" /> : saved ? '✓ Saved' : 'Save Score'}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Action buttons */}
       <div className="mt-3 ml-8 flex flex-wrap gap-1.5">
         {p.cert_sequence ? (
@@ -353,6 +386,7 @@ export default function Airlines() {
   const pendingFdrRecord = useRef(null);
 
   const [certEdits, setCertEdits]   = useState({});
+  const [ndgScores, setNdgScores]   = useState({}); // { [pid]: { value, saving, saved } }
   const [counterModal, setCounterModal] = useState(false);
   const [counters, setCounters]     = useState([]);
   const [resetting, setResetting]   = useState(null);
@@ -434,6 +468,24 @@ export default function Airlines() {
       fetchData();
     } catch (err) {
       setCertEdits(prev => ({ ...prev, [pid]: { ...prev[pid], saving: false, error: err.response?.data?.error || 'Failed' } }));
+    }
+  };
+
+  // ── NDG Score handler ─────────────────────────────────────────────────────────
+  const handleNdgScoreSave = async (pid) => {
+    const entry = ndgScores[pid];
+    if (!entry) return;
+    const val = Number(entry.value);
+    if (isNaN(val) || val < 0 || val > 100) { toast.error('Score must be 0–100'); return; }
+    setNdgScores(prev => ({ ...prev, [pid]: { ...prev[pid], saving: true } }));
+    try {
+      await updateNdgScore(pid, val);
+      toast.success('NDG score saved');
+      setNdgScores(prev => ({ ...prev, [pid]: { value: String(val), saving: false, saved: true } }));
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save score');
+      setNdgScores(prev => ({ ...prev, [pid]: { ...prev[pid], saving: false } }));
     }
   };
 
@@ -839,7 +891,8 @@ export default function Airlines() {
                           onDelete={handleDelete} downloadingId={downloadingId}
                           certEdits={certEdits} onStartEdit={startCertEdit}
                           onCancelEdit={cancelCertEdit} onSaveEdit={saveCertEdit}
-                          setCertEdits={setCertEdits} />
+                          setCertEdits={setCertEdits}
+                          ndgScores={ndgScores} setNdgScores={setNdgScores} onNdgScoreSave={handleNdgScoreSave} />
                       ))}
                     </div>
 
@@ -922,6 +975,37 @@ export default function Airlines() {
                                 <td className="px-3 py-3">
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" style={badgeStyle()}>{p.training_type}</span>
                                   <p className="text-[10px] mt-0.5 text-primary-400">{TRAINING_LABELS[p.training_type] || p.training_type}</p>
+                                  {/* NDG score input — admin only, shown inline for NDG participants */}
+                                  {p.training_type === 'NDG' && (() => {
+                                    const scoreEntry = ndgScores[pid];
+                                    const currentVal = scoreEntry !== undefined ? scoreEntry.value : (p.ndg_score != null ? String(p.ndg_score) : '');
+                                    const saving     = scoreEntry?.saving || false;
+                                    const saved      = scoreEntry?.saved  || false;
+                                    return (
+                                      <div className="mt-1.5 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-1.5 py-1">
+                                          <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wide">Score</span>
+                                          <input
+                                            type="number" min="0" max="100"
+                                            placeholder="0-100"
+                                            value={currentVal}
+                                            onChange={e => setNdgScores(prev => ({ ...prev, [pid]: { value: e.target.value, saving: false, saved: false } }))}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleNdgScoreSave(pid); }}
+                                            className="w-14 px-1 py-0 text-[11px] bg-transparent border-none outline-none text-amber-800 font-semibold placeholder-amber-300"
+                                            disabled={saving}
+                                          />
+                                          <span className="text-[10px] text-amber-500">%</span>
+                                        </div>
+                                        <button
+                                          onClick={() => handleNdgScoreSave(pid)}
+                                          disabled={saving || !currentVal}
+                                          className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50 transition-colors"
+                                        >
+                                          {saving ? <Spin cls="w-3 h-3 border-2 border-white/40 border-t-white" /> : saved ? '✓' : 'Save'}
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="px-3 py-3 text-sm text-primary-500 whitespace-nowrap">{fmtDate(p.training_date)}</td>
                                 <td className="px-3 py-3 text-sm text-primary-500 whitespace-nowrap">{fmtDate(p.end_date)}</td>

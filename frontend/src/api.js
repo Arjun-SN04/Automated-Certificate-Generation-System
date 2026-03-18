@@ -40,6 +40,8 @@ export const deleteParticipant      = (id)          => api.delete(`/participants
 export const deleteAirlineData      = (airlineName) => api.delete(`/participants/airline/${encodeURIComponent(airlineName)}`);
 export const updateCertSequence     = (id, cert_sequence) => api.patch(`/participants/${id}/cert-sequence`, { cert_sequence });
 export const updateFullCertId       = (id, cert_sequence, cert_year) => api.patch(`/participants/${id}/full-cert-id`, { cert_sequence, cert_year });
+export const updateNdgScore         = (id, ndg_score) => api.patch(`/participants/${id}/ndg-score`, { ndg_score });
+export const sendSubmissionConfirmation = (data) => api.post('/participants/send-confirmation', data);
 export const getCertCounters        = () => api.get('/certificates/counters');
 export const resetCertCounter       = (training_type, startFrom = 0) => api.post('/certificates/counters/reset', { training_type, startFrom, mode: 'hard' });
 export const resetAllCertCounters   = (startFrom = 0) => api.post('/certificates/counters/reset', { all: true, startFrom, mode: 'hard' });

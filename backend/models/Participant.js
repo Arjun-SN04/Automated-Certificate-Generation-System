@@ -31,6 +31,7 @@ const participantSchema = new mongoose.Schema(
     // Saved on first generation so preview/download always uses the same template.
     templateVariant: { type: String, default: 'default', enum: ['default', 'india'] },
     cert_year_override: { type: Number, default: null }, // override year in cert ID
+    ndg_score: { type: Number, default: null, min: 0, max: 100 }, // NDG exam score (0-100)
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
