@@ -51,6 +51,8 @@ function SingleForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
     end_date: '',
     location: '',
     modules: [],
+    ndg_subtype: 'I',          // I = Initial, R = Recurrent (NDG only)
+    online_synchronous: false,  // replaces location with 'Online Synchronous'
   });
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -160,6 +162,32 @@ function SingleForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
         </select>
       </div>
 
+      {/* NDG subtype — Initial or Recurrent */}
+      {form.training_type === 'NDG' && (
+        <div>
+          <label className="label">NDG Training Type *</label>
+          <div className="flex gap-3">
+            {[{ val: 'I', label: 'I — Initial' }, { val: 'R', label: 'R — Recurrent' }].map(opt => (
+              <button key={opt.val} type="button"
+                onClick={() => setForm(f => ({ ...f, ndg_subtype: opt.val }))}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  form.ndg_subtype === opt.val
+                    ? 'border-accent-500 bg-accent-50 text-accent-700'
+                    : 'border-primary-200 text-primary-500 hover:border-primary-400'
+                }`}>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                  form.ndg_subtype === opt.val ? 'border-accent-500' : 'border-primary-300'
+                }`}>
+                  {form.ndg_subtype === opt.val && <div className="w-2.5 h-2.5 rounded-full bg-accent-500" />}
+                </div>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-primary-400 mt-1.5">Select whether this is an Initial or Recurrent DG No-Carry training</p>
+        </div>
+      )}
+
       {/* Start Date + End Date */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -174,16 +202,40 @@ function SingleForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
         </div>
       </div>
 
-      {/* Location */}
+      {/* Online Synchronous + Location */}
       <div>
-        <label className="label">Training Location</label>
-        <input
-          name="location"
-          value={form.location}
-          onChange={handleChange}
-          className="input-field"
-          placeholder="e.g. Dubai, UAE"
-        />
+        <div className="flex items-center gap-2 mb-2">
+          <button type="button"
+            onClick={() => setForm(f => ({ ...f, online_synchronous: !f.online_synchronous, location: '' }))}
+            className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+              form.online_synchronous ? 'bg-accent-600 border-accent-600' : 'border-primary-300 hover:border-primary-500'
+            }`}>
+            {form.online_synchronous && (
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+          <span className="text-sm font-medium text-primary-700">Online Synchronous</span>
+          <span className="text-xs text-primary-400">(replaces location on certificate)</span>
+        </div>
+        {!form.online_synchronous && (
+          <div>
+            <label className="label">Training Location</label>
+            <input
+              name="location"
+              value={form.location}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="e.g. Dubai, UAE"
+            />
+          </div>
+        )}
+        {form.online_synchronous && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent-200 bg-accent-50">
+            <span className="text-xs text-accent-700 font-medium">Certificate will show: <strong>Online Synchronous</strong></span>
+          </div>
+        )}
       </div>
 
       {/* Modules for FDR */}
@@ -311,12 +363,14 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
 
   // ── Shared session fields (apply to ALL participants) ──
   const [shared, setShared] = useState({
-    department:    '',
-    training_type: '',
-    training_date: '',
-    end_date:      '',
-    location:      '',
-    modules:       [],
+    department:        '',
+    training_type:     '',
+    training_date:     '',
+    end_date:          '',
+    location:          '',
+    modules:           [],
+    ndg_subtype:       'I',    // I = Initial, R = Recurrent (NDG only)
+    online_synchronous: false, // replaces location with 'Online Synchronous'
   });
 
   const setSharedField = (field, value) => setShared(prev => ({ ...prev, [field]: value }));
@@ -368,15 +422,17 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
     for (const row of pending) {
       try {
         await createParticipant({
-          first_name:    row.first_name.trim(),
-          last_name:     row.last_name.trim(),
-          company:       isAdmin ? effectiveCompany : airlineName,
-          department:    shared.department.trim(),
-          training_type: shared.training_type,
-          training_date: shared.training_date,
-          end_date:      shared.end_date      || null,
-          location:      shared.location      || null,
-          modules:       shared.modules,
+          first_name:         row.first_name.trim(),
+          last_name:          row.last_name.trim(),
+          company:            isAdmin ? effectiveCompany : airlineName,
+          department:         shared.department.trim(),
+          training_type:      shared.training_type,
+          training_date:      shared.training_date,
+          end_date:           shared.end_date || null,
+          location:           shared.online_synchronous ? null : (shared.location || null),
+          modules:            shared.modules,
+          ndg_subtype:        shared.ndg_subtype,
+          online_synchronous: shared.online_synchronous,
         });
         setResults(prev => ({ ...prev, [row.id]: { status: 'success' } }));
         // Record in local array so we can use it synchronously below
@@ -484,11 +540,61 @@ function BulkForm({ isAdmin, airlineName, airlineOptions, onSuccess }) {
           </div>
         </div>
 
-        {/* Location */}
+        {/* NDG subtype — Initial or Recurrent */}
+        {shared.training_type === 'NDG' && (
+          <div>
+            <label className="label">NDG Training Type *</label>
+            <div className="flex gap-3">
+              {[{ val: 'I', label: 'I — Initial' }, { val: 'R', label: 'R — Recurrent' }].map(opt => (
+                <button key={opt.val} type="button"
+                  onClick={() => setSharedField('ndg_subtype', opt.val)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    shared.ndg_subtype === opt.val
+                      ? 'border-accent-500 bg-accent-50 text-accent-700'
+                      : 'border-primary-200 text-primary-500 hover:border-primary-400'
+                  }`}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    shared.ndg_subtype === opt.val ? 'border-accent-500' : 'border-primary-300'
+                  }`}>
+                    {shared.ndg_subtype === opt.val && <div className="w-2.5 h-2.5 rounded-full bg-accent-500" />}
+                  </div>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-primary-400 mt-1.5">Applies to all participants in this group</p>
+          </div>
+        )}
+
+        {/* Online Synchronous + Location */}
         <div>
-          <label className="label">Training Location</label>
-          <input value={shared.location} onChange={e => setSharedField('location', e.target.value)}
-            className="input-field" placeholder="e.g. Dubai, UAE" />
+          <div className="flex items-center gap-2 mb-2">
+            <button type="button"
+              onClick={() => setShared(s => ({ ...s, online_synchronous: !s.online_synchronous, location: '' }))}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                shared.online_synchronous ? 'bg-accent-600 border-accent-600' : 'border-primary-300 hover:border-primary-500'
+              }`}>
+              {shared.online_synchronous && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+            <span className="text-sm font-medium text-primary-700">Online Synchronous</span>
+            <span className="text-xs text-primary-400">(replaces location on certificate)</span>
+          </div>
+          {!shared.online_synchronous && (
+            <div>
+              <label className="label">Training Location</label>
+              <input value={shared.location} onChange={e => setSharedField('location', e.target.value)}
+                className="input-field" placeholder="e.g. Dubai, UAE" />
+            </div>
+          )}
+          {shared.online_synchronous && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent-200 bg-accent-50">
+              <span className="text-xs text-accent-700 font-medium">Certificate will show: <strong>Online Synchronous</strong></span>
+            </div>
+          )}
         </div>
 
         {/* Modules – FDR only */}

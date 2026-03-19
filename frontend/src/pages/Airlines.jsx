@@ -842,10 +842,10 @@ export default function Airlines() {
         const groupSome  = groupIds.some(id => checked.has(id));
 
         return (
-          <div key={aKey} className="card overflow-hidden">
+          <div key={aKey} className="card">
 
             {/* ── Airline header ── */}
-            <div className="flex items-center gap-2 px-3 sm:px-5 py-3 sm:py-4 flex-wrap">
+            <div className="flex items-center gap-2 px-3 sm:px-5 py-3 sm:py-4 flex-wrap overflow-visible">
               {/* Airline checkbox */}
               <div onClick={e => { e.stopPropagation(); toggleAirline(aKey); }}
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer flex-shrink-0 transition-colors ${checkedAirlines.has(aKey) ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'}`}>
@@ -854,8 +854,35 @@ export default function Airlines() {
 
               {/* Airline info — clickable to expand */}
               <button onClick={() => toggle(aKey)} className="flex items-center gap-3 flex-1 text-left min-w-0">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary-800 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs sm:text-sm font-bold">{mkInitials(airline.airlineName)}</span>
+                {/* Avatar: logo with zoom hover effect */}
+                <div className="relative flex-shrink-0 group/logo">
+                  {/* Main avatar */}
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-primary-800 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover/logo:scale-110">
+                    {airline.logo_url
+                      ? <img src={airline.logo_url} alt={airline.airlineName}
+                          className="w-full h-full object-contain p-1 bg-white" />
+                      : <span className="text-white text-sm sm:text-base font-bold">{mkInitials(airline.airlineName)}</span>
+                    }
+                  </div>
+                  {/* Zoomed popup — appears above the avatar on hover */}
+                  {airline.logo_url && (
+                    <div
+                      className="pointer-events-none absolute z-[999] left-1/2 -translate-x-1/2
+                        opacity-0 scale-50 group-hover/logo:opacity-100 group-hover/logo:scale-100
+                        transition-all duration-200 ease-out origin-bottom"
+                      style={{ bottom: 'calc(100% + 8px)' }}
+                    >
+                      {/* Popup box */}
+                      <div className="bg-white rounded-2xl shadow-2xl border border-primary-200 p-3 w-28 h-28 flex items-center justify-center">
+                        <img src={airline.logo_url} alt={airline.airlineName}
+                          className="w-full h-full object-contain" />
+                      </div>
+                      {/* Caret — centered under the box */}
+                      <div className="absolute bottom-0 left-1/2 translate-y-full -translate-x-1/2 pt-0.5">
+                        <div className="w-3 h-3 bg-white border-r border-b border-primary-200 rotate-45" />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -904,7 +931,7 @@ export default function Airlines() {
             <AnimatePresence initial={false}>
               {expanded[aKey] && participants.length > 0 && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                  exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden rounded-b-xl">
 
                   <div className="border-t border-primary-100">
 

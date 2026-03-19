@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import logoImg from '../assets/logo.png';
 import {
   HiOutlineBell,
@@ -13,9 +14,77 @@ import {
   HiOutlineDocumentText,
   HiOutlineUserAdd,
   HiOutlineLogout,
+  HiOutlineAcademicCap,
+  HiOutlineOfficeBuilding,
+  HiOutlineCalendar,
+  HiOutlineLocationMarker,
 } from 'react-icons/hi';
 import { getParticipants } from '../api';
 import { useAuth } from '../context/AuthContext';
+
+function fmtDate(str) {
+  if (!str) return '—';
+  return new Date(str).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ─── Full detail modal shown when a search result is clicked ─────────────────────────
+function ParticipantDetailModal({ record, onClose }) {
+  if (!record) return null;
+  const ini = (name = '') => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const rows = [
+    { label: 'Full Name',      value: record.participant_name },
+    { label: 'Airline',        value: record.company },
+    { label: 'Department',     value: record.department },
+    { label: 'Training Type',  value: record.training_type },
+    { label: 'Start Date',     value: fmtDate(record.training_date) },
+    { label: 'End Date',       value: record.end_date ? fmtDate(record.end_date) : '—' },
+    { label: 'Location',       value: record.online_synchronous ? 'Online Synchronous' : (record.location || '—') },
+    { label: 'NDG Subtype',    value: record.training_type === 'NDG' ? (record.ndg_subtype === 'R' ? 'Recurrent' : 'Initial') : null },
+    { label: 'NDG Score',      value: record.training_type === 'NDG' && record.ndg_score != null ? `${record.ndg_score}%` : null },
+    { label: 'Modules',        value: record.modules || null },
+    { label: 'Certificate No', value: record.cert_sequence ? `${record.training_type}-${String(record.cert_sequence).padStart(5,'0')}` : 'Not yet generated' },
+    { label: 'Status',         value: record.locked ? 'Locked' : 'Draft' },
+  ].filter(r => r.value !== null && r.value !== undefined);
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}>
+        <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.15 }}
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center gap-4 px-5 py-4 border-b border-primary-100">
+            <div className="w-12 h-12 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-bold text-primary-600">{ini(record.participant_name)}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-primary-800 truncate">{record.participant_name}</h2>
+              <p className="text-xs text-primary-400 mt-0.5">{record.company} · {record.department}</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-primary-100 text-primary-400 flex-shrink-0">
+              <HiOutlineX className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Details */}
+          <div className="px-5 py-4 space-y-0 max-h-[55vh] overflow-y-auto">
+            {rows.map(({ label, value }) => (
+              <div key={label} className="flex items-start justify-between gap-4 py-2.5 border-b border-primary-50 last:border-0">
+                <span className="text-xs font-semibold text-primary-400 uppercase tracking-wide flex-shrink-0 w-28">{label}</span>
+                <span className="text-sm text-primary-800 text-right break-words max-w-[200px]">{value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="px-5 py-3 bg-primary-50/50 border-t border-primary-100 flex justify-end">
+            <button onClick={onClose} className="btn-primary text-sm">Close</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 
 const defaultNotifications = [
@@ -33,6 +102,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [detailRecord, setDetailRecord] = useState(null); // clicked participant detail
   const profileRef = useRef(null);
   const notifRef = useRef(null);
   const searchRef = useRef(null);
@@ -112,23 +182,24 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   };
 
   const handleResultClick = (record) => {
-    navigate(`/admin/participants/edit/${record.id}`);
+    setDetailRecord(record);   // open detail modal — no navigation
     setSearchOpen(false);
     setSearchQuery('');
+    setSearchResults([]);
   };
 
   return (
     <header className="h-16 bg-white border-b border-primary-200 flex items-center justify-between px-4 sm:px-6 shadow-sm flex-shrink-0">
       {/* Left side */}
       <div className="flex items-center gap-3">
-        {/* Hamburger — always visible, opens sidebar */}
+        {/* Hamburger — mobile only (desktop uses sidebar's own collapse arrow) */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-lg hover:bg-primary-100 transition-colors flex-shrink-0"
+          className="lg:hidden p-2 rounded-lg hover:bg-primary-100 transition-colors flex-shrink-0"
         >
           <HiOutlineMenu className="w-5 h-5 text-primary-600" />
         </button>
-        {/* Search — hidden on xs, shown from sm */}
+        {/* Search — visible on all pages for both admin and airline */}
         <div className="relative hidden sm:block" ref={searchRef}>
           <form onSubmit={handleSearchSubmit}>
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
@@ -196,15 +267,9 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
                       </span>
                     </button>
                   ))}
-                  <button
-                    onClick={() => {
-                      navigate(`/admin/participants?search=${encodeURIComponent(searchQuery)}`);
-                      setSearchOpen(false);
-                    }}
-                    className="w-full px-4 py-2.5 bg-primary-50 text-xs font-medium text-accent-600 hover:text-accent-700 hover:bg-primary-100 transition-colors text-center"
-                  >
-                    View all results →
-                  </button>
+                  <div className="px-4 py-2 bg-primary-50 text-[10px] text-primary-400 text-center">
+                    Click a result to view full details
+                  </div>
                 </>
               )}
             </div>
@@ -285,12 +350,26 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
             onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-primary-100 transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-[#000021] flex items-center justify-center">
-              <span className="text-white text-xs font-semibold">{initials}</span>
-            </div>
+            {/* Avatar: logo (airline) or initials (admin/fallback) */}
+            {!isAdmin && admin?.logo_url ? (
+              <div className="w-9 h-9 rounded-full bg-white border-2 border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center shadow-sm">
+                <img src={admin.logo_url} alt={admin.airlineName}
+                  className="w-full h-full object-contain p-0.5" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #000021 0%, #0000ff 100%)' }}>
+                <span className="text-white text-xs font-bold">
+                  {!isAdmin && admin?.airlineName
+                    ? admin.airlineName.charAt(0).toUpperCase()
+                    : initials
+                  }
+                </span>
+              </div>
+            )}
             <div className="hidden md:block text-left">
-            <p className="text-sm font-medium text-primary-800">
-              {isAdmin ? (admin?.name || 'Admin') : (admin?.airlineName || admin?.name || 'Airline')}
+              <p className="text-sm font-medium text-primary-800">
+                {isAdmin ? (admin?.name || 'Admin') : (admin?.airlineName || admin?.name || 'Airline')}
               </p>
               <p className="text-[10px] text-primary-400">
                 {isAdmin ? 'Administrator' : 'Airline User'}
@@ -334,6 +413,8 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
           )}
         </div>
       </div>
+      {/* Participant detail modal — opens when a search result is clicked */}
+      <ParticipantDetailModal record={detailRecord} onClose={() => setDetailRecord(null)} />
     </header>
   );
 }

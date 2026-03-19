@@ -254,6 +254,67 @@ function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Participant detail modal ─────────────────────────────────────────────────────────
+function ParticipantModal({ record, onClose }) {
+  if (!record) return null;
+  const rows = [
+    { label: 'Full Name',      value: record.participant_name },
+    { label: 'First Name',     value: record.first_name },
+    { label: 'Last Name',      value: record.last_name },
+    { label: 'Airline',        value: record.company },
+    { label: 'Department',     value: record.department },
+    { label: 'Training Type',  value: record.training_type },
+    { label: 'Start Date',     value: fmtDate(record.training_date) },
+    { label: 'End Date',       value: record.end_date ? fmtDate(record.end_date) : '—' },
+    { label: 'Location',       value: record.online_synchronous ? 'Online Synchronous' : (record.location || '—') },
+    { label: 'NDG Subtype',    value: record.training_type === 'NDG' ? (record.ndg_subtype === 'R' ? 'Recurrent' : 'Initial') : null },
+    { label: 'NDG Score',      value: record.training_type === 'NDG' && record.ndg_score != null ? `${record.ndg_score}%` : null },
+    { label: 'Modules',        value: record.modules || null },
+    { label: 'Certificate No', value: record.cert_sequence ? `${record.training_type}-${String(record.cert_sequence).padStart(5,'0')}` : 'Not yet generated' },
+    { label: 'Status',         value: record.locked ? 'Locked' : 'Draft' },
+  ].filter(r => r.value !== null && r.value !== undefined);
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}>
+        <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.15 }}
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center gap-4 px-5 py-4 border-b border-primary-100">
+            <div className="w-11 h-11 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-bold text-primary-600">{initials(record.participant_name)}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-primary-800 truncate">{record.participant_name}</h2>
+              <p className="text-xs text-primary-400 mt-0.5">{record.company} · {record.department}</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-primary-100 text-primary-400 flex-shrink-0">
+              <HiOutlineX className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Details */}
+          <div className="px-5 py-4 space-y-1 max-h-[60vh] overflow-y-auto">
+            {rows.map(({ label, value }) => (
+              <div key={label} className="flex items-start justify-between gap-4 py-2 border-b border-primary-50 last:border-0">
+                <span className="text-xs font-semibold text-primary-400 uppercase tracking-wide flex-shrink-0 w-28">{label}</span>
+                <span className="text-sm text-primary-800 text-right break-words max-w-[200px]">{value}</span>
+              </div>
+            ))}
+          </div>
+          {/* Footer */}
+          <div className="px-5 py-3 bg-primary-50/50 border-t border-primary-100 flex justify-end">
+            <button onClick={onClose} className="btn-primary text-sm">Close</button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function Participants() {
   const { isAdmin } = useAuth();
   const [records, setRecords] = useState([]);
@@ -311,6 +372,8 @@ export default function Participants() {
       return db - da;
     });
   }, [records, isAdmin]);
+
+  const [detailRecord, setDetailRecord] = useState(null);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // AIRLINE VIEW — grouped collapsible layout
@@ -386,10 +449,11 @@ export default function Participants() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // ADMIN VIEW — flat table (unchanged)
+  // ADMIN VIEW — flat table
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <ParticipantModal record={detailRecord} onClose={() => setDetailRecord(null)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-primary-800">Participants</h1>
@@ -452,7 +516,9 @@ export default function Participants() {
                 <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-primary-400">No records found.</td></tr>
               ) : (
                 records.map(record => (
-                  <tr key={record.id} className="border-b border-primary-100 last:border-0 hover:bg-primary-50/50 transition-colors">
+                  <tr key={record.id}
+                    onClick={() => setDetailRecord(record)}
+                    className="border-b border-primary-100 last:border-0 hover:bg-primary-50/50 transition-colors cursor-pointer">
                     <td className="px-4 sm:px-6 py-4">
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary-200 flex items-center justify-center flex-shrink-0">
@@ -465,7 +531,7 @@ export default function Participants() {
                     <td className="px-4 sm:px-6 py-4 text-sm text-primary-600 hidden md:table-cell">{record.department}</td>
                     <td className="px-4 sm:px-6 py-4">{typeBadge(record.training_type)}</td>
                     <td className="px-4 sm:px-6 py-4 text-sm text-primary-500 hidden sm:table-cell">{fmtDate(record.training_date)}</td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         <Link to={`/admin/participants/edit/${record.id}`}
                           className="p-1.5 rounded-lg hover:bg-primary-100 transition-colors text-primary-400 hover:text-primary-600" title="Edit">

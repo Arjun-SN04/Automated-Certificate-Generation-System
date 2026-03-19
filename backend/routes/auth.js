@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const Airline = require('../models/Airline');
+const { upload, cloudinary } = require('../services/upload');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -106,12 +107,28 @@ router.post('/login', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+//  UPLOAD AIRLINE LOGO (call before signup)
+//  POST /api/auth/airline/upload-logo
+//  Body: multipart/form-data, field name = 'logo'
+//  Returns: { logo_url: 'https://res.cloudinary.com/...' }
+// ─────────────────────────────────────────────
+router.post('/airline/upload-logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+    res.json({ logo_url: req.file.path });
+  } catch (err) {
+    console.error('Logo upload error:', err);
+    res.status(500).json({ error: err.message || 'Upload failed.' });
+  }
+});
+
+// ─────────────────────────────────────────────
 //  AIRLINE SIGNUP
 //  POST /api/auth/airline/signup
 // ─────────────────────────────────────────────
 router.post('/airline/signup', async (req, res) => {
   try {
-    const { name, airlineName, email, password } = req.body;
+    const { name, airlineName, email, password, logo_url } = req.body;
     if (!name || !airlineName || !email || !password)
       return res.status(400).json({ error: 'Name, airline name, email, and password are required.' });
     if (password.length < 6)
@@ -121,7 +138,7 @@ router.post('/airline/signup', async (req, res) => {
     if (existing)
       return res.status(400).json({ error: 'An account with this email already exists.' });
 
-    const airline = await Airline.create({ name, airlineName, email, password });
+    const airline = await Airline.create({ name, airlineName, email, password, logo_url: logo_url || null });
     const token = jwt.sign(
       { id: airline._id, email: airline.email, name: airline.name, airlineName: airline.airlineName, role: 'airline' },
       JWT_SECRET,
@@ -203,8 +220,9 @@ router.put('/profile', authMiddleware, async (req, res) => {
     const user = await Model.findById(req.admin.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
-    const { name, currentPassword, newPassword, newEmail } = req.body;
+    const { name, currentPassword, newPassword, newEmail, logo_url } = req.body;
     if (name && name.trim()) user.name = name.trim();
+    if (logo_url !== undefined && req.admin.role === 'airline') user.logo_url = logo_url || null;
 
     if (newPassword) {
       if (!currentPassword)

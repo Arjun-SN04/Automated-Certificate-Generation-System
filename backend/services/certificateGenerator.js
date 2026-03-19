@@ -299,8 +299,11 @@ async function generateCertificate(participant) {
   if (!certDateStr) {
     throw new Error(`Missing training date for participant ${participant._id || participant.participant_name}`);
   }
-  const dateText     = formatDateUpper(certDateStr);
-  const locationText = (participant.location || '').trim();
+  const dateText = formatDateUpper(certDateStr);
+  // If online_synchronous is checked, always show 'Online Synchronous' instead of location
+  const locationText = participant.online_synchronous
+    ? 'Online Synchronous'
+    : (participant.location || '').trim();
 
   if (rawType === 'FDA') {
     drawCentered('Has successfully completed the North Atlantic Operations and Extended Diversion Time Operations Training.', 330, helvetica, 11);
@@ -326,24 +329,26 @@ async function generateCertificate(participant) {
     if (locationText) drawCentered(`Training done from: ${locationText}`, 428, helvetica, 10);
 
   } else if (rawType === 'NDG') {
-    const ndgScore = participant.ndg_score != null ? participant.ndg_score : null;
+    const ndgScore   = participant.ndg_score != null ? participant.ndg_score : null;
+    // 'I' = Initial (default), 'R' = Recurrent
+    const ndgSubtype = participant.ndg_subtype === 'R' ? 'Recurrent' : 'Initial';
+
     if (ndgScore !== null) {
-      // Draw completion sentence + bold score on one line, all centered together
-      const scoreLine1 = 'Has successfully completed the Recurrent Dangerous Goods No Carry Virtual Training with a';
+      const scoreLine1     = `Has successfully completed the ${ndgSubtype} Dangerous Goods No Carry Virtual Training with a`;
       const scoreValueText = `score of ${ndgScore}%.`;
-      const line1W   = helvetica.widthOfTextAtSize(scoreLine1, 11);
-      const scoreW   = helveticaBold.widthOfTextAtSize(scoreValueText, 11);
-      const totalW   = line1W + 4 + scoreW;
-      const startX   = (width - totalW) / 2;
-      page.drawText(scoreLine1, { x: startX, y: flipY(336), size: 11, font: helvetica, color: black });
-      page.drawText(scoreValueText, { x: startX + line1W + 4, y: flipY(336), size: 11, font: helveticaBold, color: black });
+      const line1W = helvetica.widthOfTextAtSize(scoreLine1, 11);
+      const scoreW = helveticaBold.widthOfTextAtSize(scoreValueText, 11);
+      const totalW = line1W + 4 + scoreW;
+      const startX = (width - totalW) / 2;
+      page.drawText(scoreLine1,     { x: startX,                y: flipY(336), size: 11, font: helvetica,     color: black });
+      page.drawText(scoreValueText, { x: startX + line1W + 4,  y: flipY(336), size: 11, font: helveticaBold, color: black });
       drawCentered('This training has been delivered as prescribed in', 357, helvetica, 11);
       drawCentered('ICAO DOC 9284 Ed. 2025-2026, IATA DGR Ed. 67 2026 and IATA DGR CBTA Training Guidance/Appendix H.', 371, helvetica, 9.5);
       drawCentered('This certificate is valid for 24 months from', 392, helvetica, 8);
       drawCentered(dateText, 412, helveticaBold, 18);
       if (locationText) drawCentered(`Training done from: ${locationText}`, 436, helvetica, 10);
     } else {
-      drawCentered('Has successfully completed the Dangerous Goods No Carry Training.', 330, helvetica, 11);
+      drawCentered(`Has successfully completed the ${ndgSubtype} Dangerous Goods No Carry Training.`, 330, helvetica, 11);
       drawCentered('This training has been delivered as prescribed in', 348, helvetica, 11);
       drawCentered('ICAO DOC 9284 Ed. 2025-2026, IATA DGR Ed. 67 2026 and IATA DGR CBTA Training Guidance/Appendix H.', 362, helvetica, 9.5);
       drawCentered('This certificate is valid for 24 months from', 384, helvetica, 8);

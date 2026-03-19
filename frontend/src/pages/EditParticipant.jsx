@@ -38,6 +38,8 @@ export default function EditParticipant() {
     end_date: '',
     location: '',
     modules: [],
+    ndg_subtype: 'I',
+    online_synchronous: false,
   });
 
   useEffect(() => {
@@ -55,15 +57,17 @@ export default function EditParticipant() {
         }
 
         setForm({
-          first_name:    fName,
-          last_name:     lName,
-          company:       data.company       || '',
-          department:    data.department    || '',
-          training_type: data.training_type || '',
-          training_date: data.training_date ? data.training_date.slice(0, 10) : '',
-          end_date:      data.end_date      ? data.end_date.slice(0, 10) : '',
-          location:      data.location      || '',
-          modules: data.modules ? data.modules.split(',').map(m => m.trim()) : [],
+          first_name:         fName,
+          last_name:          lName,
+          company:            data.company       || '',
+          department:         data.department    || '',
+          training_type:      data.training_type || '',
+          training_date:      data.training_date ? data.training_date.slice(0, 10) : '',
+          end_date:           data.end_date      ? data.end_date.slice(0, 10) : '',
+          location:           data.location      || '',
+          modules:            data.modules ? data.modules.split(',').map(m => m.trim()) : [],
+          ndg_subtype:        data.ndg_subtype       || 'I',
+          online_synchronous: data.online_synchronous || false,
         });
       } catch {
         toast.error('Failed to load record');
@@ -168,6 +172,32 @@ export default function EditParticipant() {
           </select>
         </div>
 
+        {/* NDG subtype — Initial or Recurrent */}
+        {form.training_type === 'NDG' && (
+          <div>
+            <label className="label">NDG Training Type *</label>
+            <div className="flex gap-3">
+              {[{ val: 'I', label: 'I — Initial' }, { val: 'R', label: 'R — Recurrent' }].map(opt => (
+                <button key={opt.val} type="button"
+                  onClick={() => setForm(f => ({ ...f, ndg_subtype: opt.val }))}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    form.ndg_subtype === opt.val
+                      ? 'border-accent-500 bg-accent-50 text-accent-700'
+                      : 'border-primary-200 text-primary-500 hover:border-primary-400'
+                  }`}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    form.ndg_subtype === opt.val ? 'border-accent-500' : 'border-primary-300'
+                  }`}>
+                    {form.ndg_subtype === opt.val && <div className="w-2.5 h-2.5 rounded-full bg-accent-500" />}
+                  </div>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-primary-400 mt-1.5">Select whether this is an Initial or Recurrent DG No-Carry training</p>
+          </div>
+        )}
+
         {/* Start Date + End Date */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -184,11 +214,35 @@ export default function EditParticipant() {
           </div>
         </div>
 
-        {/* Location */}
+        {/* Online Synchronous + Location */}
         <div>
-          <label className="label">Training Location</label>
-          <input name="location" value={form.location} onChange={handleChange}
-            className="input-field" placeholder="e.g. Dubai, UAE" />
+          <div className="flex items-center gap-2 mb-2">
+            <button type="button"
+              onClick={() => setForm(f => ({ ...f, online_synchronous: !f.online_synchronous, location: '' }))}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                form.online_synchronous ? 'bg-accent-600 border-accent-600' : 'border-primary-300 hover:border-primary-500'
+              }`}>
+              {form.online_synchronous && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+            <span className="text-sm font-medium text-primary-700">Online Synchronous</span>
+            <span className="text-xs text-primary-400">(replaces location on certificate)</span>
+          </div>
+          {!form.online_synchronous && (
+            <div>
+              <label className="label">Training Location</label>
+              <input name="location" value={form.location} onChange={handleChange}
+                className="input-field" placeholder="e.g. Dubai, UAE" />
+            </div>
+          )}
+          {form.online_synchronous && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent-200 bg-accent-50">
+              <span className="text-xs text-accent-700 font-medium">Certificate will show: <strong>Online Synchronous</strong></span>
+            </div>
+          )}
         </div>
 
         {/* Modules for FDR */}

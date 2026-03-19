@@ -2,12 +2,13 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const airlineSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },           // person's name
-  airlineName: { type: String, required: true, trim: true },    // e.g. "Emirates Airlines"
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true, minlength: 6 },
-  role: { type: String, default: 'airline' },
-  lastLogin: { type: Date, default: Date.now },
+  name:        { type: String, required: true, trim: true },        // contact person name
+  airlineName: { type: String, required: true, trim: true },        // e.g. "Emirates Airlines"
+  email:       { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password:    { type: String, required: true, minlength: 6 },
+  role:        { type: String, default: 'airline' },
+  lastLogin:   { type: Date, default: Date.now },
+  logo_url:    { type: String, default: null },                     // Cloudinary URL of company logo
 }, { timestamps: true });
 
 airlineSchema.pre('save', async function () {

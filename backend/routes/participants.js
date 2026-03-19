@@ -158,6 +158,7 @@ router.post('/', async (req, res) => {
       company, department,
       training_type, training_date,
       end_date, location, modules,
+      ndg_subtype, online_synchronous,
     } = req.body;
 
     const fName = (first_name || '').trim()
@@ -187,10 +188,12 @@ router.post('/', async (req, res) => {
       department,
       training_type,
       training_date,
-      end_date:     end_date  || null,
-      location:     location  || null,
-      modules:      modulesStr,
-      cert_sequence: null,
+      end_date:          end_date  || null,
+      location:          online_synchronous ? null : (location || null),
+      modules:           modulesStr,
+      cert_sequence:     null,
+      ndg_subtype:       training_type === 'NDG' ? (ndg_subtype || 'I') : 'I',
+      online_synchronous: !!online_synchronous,
       airline_name: req.admin.role === 'airline'
         ? (req.admin.airlineName || company)
         : company,
@@ -222,6 +225,7 @@ router.post('/bulk', async (req, res) => {
           first_name, last_name, participant_name,
           company, department, training_type, training_date,
           end_date, location, modules,
+          ndg_subtype, online_synchronous,
         } = item;
 
         const fName = (first_name || '').trim()
@@ -252,10 +256,12 @@ router.post('/bulk', async (req, res) => {
           department,
           training_type,
           training_date,
-          end_date:     end_date  || null,
-          location:     location  || null,
-          modules:      modulesStr,
-          cert_sequence: null,
+          end_date:          end_date || null,
+          location:          online_synchronous ? null : (location || null),
+          modules:           modulesStr,
+          cert_sequence:     null,
+          ndg_subtype:       training_type === 'NDG' ? (ndg_subtype || 'I') : 'I',
+          online_synchronous: !!online_synchronous,
           airline_name: req.admin.role === 'airline'
             ? (req.admin.airlineName || company)
             : company,
@@ -328,6 +334,7 @@ router.put('/:id', async (req, res) => {
       company, department,
       training_type, training_date,
       end_date, location, modules,
+      ndg_subtype, online_synchronous,
     } = req.body;
 
     const doc = await Participant.findById(req.params.id);
@@ -349,7 +356,9 @@ router.put('/:id', async (req, res) => {
     if (training_type) doc.training_type = training_type;
     if (training_date) doc.training_date = training_date;
     if (end_date  !== undefined) doc.end_date  = end_date  || null;
-    if (location  !== undefined) doc.location  = location  || null;
+    if (online_synchronous !== undefined) doc.online_synchronous = !!online_synchronous;
+    if (location  !== undefined) doc.location  = doc.online_synchronous ? null : (location || null);
+    if (ndg_subtype && (training_type || doc.training_type) === 'NDG') doc.ndg_subtype = ndg_subtype;
     doc.modules = Array.isArray(modules) ? modules.join(',') : (modules || null);
 
     await doc.save();

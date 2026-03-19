@@ -25,8 +25,15 @@ export const getMe       = ()     => api.get('/auth/me');
 export const updateProfile = (data) => api.put('/auth/profile', data);
 
 // ── Airline Auth ────────────────────────────────────────────────────────────
-export const airlineSignup = (data) => api.post('/auth/airline/signup', data);
-export const airlineLogin  = (data) => api.post('/auth/airline/login', data);
+export const airlineSignup     = (data) => api.post('/auth/airline/signup', data);
+export const airlineLogin      = (data) => api.post('/auth/airline/login', data);
+export const uploadAirlineLogo = (file) => {
+  const fd = new FormData();
+  fd.append('logo', file);
+  return api.post('/auth/airline/upload-logo', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 // ── Participants ────────────────────────────────────────────────────────────
 export const getParticipantsByAirline = () => api.get('/participants/by-airline');
