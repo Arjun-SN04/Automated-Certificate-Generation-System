@@ -171,22 +171,27 @@ function CounterResetModal({ open, onClose, counters, ALL_TYPES, resetting, onRe
   if (!open) return null;
   return (
     <AnimatePresence>
+      {/* Backdrop — inset-0 with overflow-y-auto so the whole overlay scrolls on tiny screens */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto py-4 px-4"
         onClick={onClose}>
         <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col my-auto"
           onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-4 border-b border-primary-100">
+
+          {/* ── Sticky header ── */}
+          <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-primary-100 flex-shrink-0">
             <div>
-              <h2 className="text-base font-bold text-primary-800">Reset Certificate Counters</h2>
+              <h2 className="text-sm sm:text-base font-bold text-primary-800">Reset Certificate Counters</h2>
               <p className="text-xs text-primary-400 mt-0.5">Reset to 0 — admin must regenerate all certificates</p>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-primary-100 text-primary-400"><HiOutlineX className="w-5 h-5" /></button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-primary-100 text-primary-400 flex-shrink-0"><HiOutlineX className="w-5 h-5" /></button>
           </div>
-          <div className="mx-5 mt-4 flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
+
+          {/* ── Warning banner ── */}
+          <div className="mx-4 sm:mx-5 mt-4 flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 flex-shrink-0">
             <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </svg>
@@ -195,17 +200,19 @@ function CounterResetModal({ open, onClose, counters, ALL_TYPES, resetting, onRe
               Certificates become invalid — admin must regenerate each one.
             </p>
           </div>
-          <div className="p-5 space-y-2">
+
+          {/* ── Scrollable counter list ── */}
+          <div className="px-4 sm:px-5 py-4 space-y-2 overflow-y-auto max-h-[45vh] sm:max-h-[50vh]">
             {ALL_TYPES.map(type => {
               const current = counters.find(c => c.training_type === type)?.seq ?? 0;
               return (
-                <div key={type} className="flex items-center justify-between px-4 py-3 rounded-xl bg-primary-50 border border-primary-100">
+                <div key={type} className="flex items-center justify-between px-3 sm:px-4 py-3 rounded-xl bg-primary-50 border border-primary-100">
                   <div>
                     <span className="text-sm font-bold text-primary-800">{type}</span>
                     <span className="ml-2 text-xs text-primary-400">#{String(current).padStart(5, '0')}</span>
                   </div>
                   <button onClick={() => onReset(type)} disabled={resetting === type || resetting === 'ALL'}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors">
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors whitespace-nowrap">
                     {resetting === type
                       ? <Spin cls="w-3 h-3 border-2 border-red-300 border-t-red-600" />
                       : <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -216,7 +223,9 @@ function CounterResetModal({ open, onClose, counters, ALL_TYPES, resetting, onRe
               );
             })}
           </div>
-          <div className="px-5 pb-5 flex gap-3">
+
+          {/* ── Sticky footer buttons — always visible ── */}
+          <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 border-t border-primary-100 flex gap-3 flex-shrink-0">
             <button onClick={onClose} className="btn-outline flex-1">Close</button>
             <button onClick={onResetAll} disabled={resetting === 'ALL'}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-60 transition-colors">

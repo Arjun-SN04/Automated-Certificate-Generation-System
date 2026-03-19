@@ -43,7 +43,7 @@ export default function Sidebar({ open, setOpen }) {
       {/* ── Header ── */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 flex-shrink-0">
         <button
-          onClick={() => navigate(isAdmin ? '/admin' : '/airline')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-3 min-w-0 flex-1"
         >
           <img src={logoImg} alt="IFOA" className="h-8 w-auto object-contain flex-shrink-0" />
