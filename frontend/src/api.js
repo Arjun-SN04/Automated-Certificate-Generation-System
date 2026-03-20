@@ -24,6 +24,9 @@ export const login       = (data) => api.post('/auth/login', data);
 export const getMe       = ()     => api.get('/auth/me');
 export const updateProfile = (data) => api.put('/auth/profile', data);
 
+// ── Notifications ──────────────────────────────────────────────
+export const getNotifications = () => api.get('/notifications');
+
 // ── Airline Auth ────────────────────────────────────────────────────────────
 export const airlineSignup     = (data) => api.post('/auth/airline/signup', data);
 export const airlineLogin      = (data) => api.post('/auth/airline/login', data);

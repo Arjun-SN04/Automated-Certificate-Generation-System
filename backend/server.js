@@ -71,13 +71,15 @@ initDB()
 
 // Setup routes immediately (they'll handle offline state)
 setTimeout(() => {
-  const participantsRouter = require('./routes/participants');
-  const certificatesRouter = require('./routes/certificates');
+  const participantsRouter    = require('./routes/participants');
+  const certificatesRouter    = require('./routes/certificates');
+  const notificationsRouter   = require('./routes/notifications');
   const { router: authRouter } = require('./routes/auth');
 
   app.use('/api/auth', authRouter);
   app.use('/api/participants', participantsRouter);
   app.use('/api/certificates', certificatesRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../frontend/dist')));

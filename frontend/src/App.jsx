@@ -29,12 +29,12 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-// Requires admin role — redirects airlines to dashboard
+// Requires admin role — redirects airlines to their own dashboard
 function AdminRoute({ children }) {
   const { admin, loading, isAdmin } = useAuth();
   if (loading) return null;
   if (!admin) return <Navigate to="/login" replace />;
-  if (!isAdmin) return <Navigate to="/admin" replace />;
+  if (!isAdmin) return <Navigate to="/airline" replace />; // send airlines home
   return children;
 }
 

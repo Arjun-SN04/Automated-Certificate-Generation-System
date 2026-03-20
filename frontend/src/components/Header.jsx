@@ -19,7 +19,7 @@ import {
   HiOutlineCalendar,
   HiOutlineLocationMarker,
 } from 'react-icons/hi';
-import { getParticipants } from '../api';
+import { getParticipants, getNotifications } from '../api';
 import { useAuth } from '../context/AuthContext';
 
 function fmtDate(str) {
@@ -87,17 +87,51 @@ function ParticipantDetailModal({ record, onClose }) {
 }
 
 
-const defaultNotifications = [
-  { id: 1, icon: HiOutlineCheckCircle, color: 'text-emerald-500', title: 'System Ready', desc: 'Certificate system is online and operational.', time: 'Just now', read: false },
-  { id: 2, icon: HiOutlineDocumentText, color: 'text-blue-500', title: 'Templates Loaded', desc: 'All 3 certificate templates loaded successfully.', time: '5m ago', read: false },
-  { id: 3, icon: HiOutlineUserAdd, color: 'text-violet-500', title: 'New Participant', desc: 'A new participant record was recently added.', time: '1h ago', read: true },
-];
+// Notification type → icon + colour config
+const NOTIF_CONFIG = {
+  certificate: { icon: HiOutlineDocumentText,  color: 'text-emerald-500', bg: 'bg-emerald-50' },
+  participant:  { icon: HiOutlineUserAdd,        color: 'text-blue-500',    bg: 'bg-blue-50'    },
+  score:        { icon: HiOutlineCheckCircle,    color: 'text-amber-500',   bg: 'bg-amber-50'   },
+  airline:      { icon: HiOutlineOfficeBuilding, color: 'text-violet-500',  bg: 'bg-violet-50'  },
+};
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7)  return `${d}d ago`;
+  return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
 
 export default function Header({ sidebarOpen, setSidebarOpen }) {
   const { admin, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState(defaultNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  // Persist dismissed/read IDs in localStorage so they survive page refresh
+  const storageKey = admin?.id ? `notif_read_${admin.id}` : null;
+  const [readIds, setReadIdsState] = useState(() => {
+    if (!storageKey) return new Set();
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const setReadIds = (updater) => {
+    setReadIdsState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (storageKey) {
+        try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch {}
+      }
+      return next;
+    });
+  };
+  const [bellRinging, setBellRinging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -110,14 +144,57 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation();
   const debounceRef = useRef(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
   const { isAdmin } = useAuth();
   const initials = admin?.name
     ? admin.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'AD';
 
-  const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  const dismissNotif = (id) => setNotifications((prev) => prev.filter((n) => n.id !== id));
+  // Fetch notifications from backend
+  const fetchNotifications = async () => {
+    if (!admin) return;
+    try {
+      setNotifLoading(true);
+      const res = await getNotifications();
+      setNotifications(res.data || []);
+    } catch {
+      // silently fail
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  // Load on mount + refresh every 60s
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [admin]);
+
+  // These must be declared BEFORE any useEffect that references them
+  const visibleNotifs = notifications.filter(n => !readIds.has(n.id));
+  const unreadCount   = visibleNotifs.filter(n => !n.read).length;
+
+  const markAllRead  = () => setReadIds(prev => new Set([...prev, ...notifications.map(n => n.id)]));
+  const dismissNotif = (id) => setReadIds(prev => new Set([...prev, id]));
+
+  // Ring the bell every 12s when there are unread notifications and panel is closed
+  useEffect(() => {
+    if (unreadCount === 0 || notifOpen) return;
+    const ringInterval = setInterval(() => {
+      setBellRinging(true);
+      setTimeout(() => setBellRinging(false), 700);
+    }, 12000);
+    setBellRinging(true);
+    setTimeout(() => setBellRinging(false), 700);
+    return () => clearInterval(ringInterval);
+  }, [unreadCount, notifOpen]);
+
+  // Also refresh when bell is opened
+  const handleNotifToggle = () => {
+    setNotifOpen(o => !o);
+    setProfileOpen(false);
+    if (!notifOpen) fetchNotifications();
+  };
 
   const handleLogout = () => {
     setProfileOpen(false);
@@ -176,7 +253,8 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/admin/participants?search=${encodeURIComponent(searchQuery.trim())}`);
+      const base = isAdmin ? '/admin/participants' : '/airline/submissions';
+      navigate(`${base}?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchOpen(false);
     }
   };
@@ -293,53 +371,100 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); }}
+            onClick={handleNotifToggle}
             className="relative p-2 rounded-lg hover:bg-primary-100 transition-colors"
           >
-            <HiOutlineBell className="w-5 h-5 text-primary-500" />
+            <HiOutlineBell className={`w-5 h-5 text-primary-500 ${bellRinging ? 'bell-ring' : ''}`} />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-[9px] font-bold text-white">{unreadCount}</span>
+                <span className="text-[9px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
               </span>
             )}
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white rounded-xl border border-primary-200 shadow-xl z-50 overflow-hidden animate-fade-in">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100">
-                <p className="text-sm font-semibold text-primary-800">Notifications</p>
-                {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="text-[11px] font-medium text-accent-600 hover:text-accent-700 transition-colors">
-                    Mark all read
+            <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-primary-100 shadow-2xl z-50 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-primary-100 bg-primary-50/50">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-primary-800">Notifications</p>
+                  {unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded-full">{unreadCount}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button onClick={markAllRead}
+                      className="text-[11px] font-medium text-accent-600 hover:text-accent-700 transition-colors">
+                      Mark all read
+                    </button>
+                  )}
+                  <button onClick={() => { fetchNotifications(); }}
+                    className="p-1 rounded hover:bg-primary-100 transition-colors" title="Refresh">
+                    <svg className={`w-3.5 h-3.5 text-primary-400 ${notifLoading ? 'animate-spin' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                   </button>
-                )}
+                </div>
               </div>
-              {notifications.length === 0 ? (
-                <div className="p-6 text-center text-sm text-primary-400">No notifications</div>
+
+              {/* Body */}
+              {notifLoading && visibleNotifs.length === 0 ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-primary-400">
+                  <div className="w-4 h-4 border-2 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
+                  <span className="text-sm">Loading…</span>
+                </div>
+              ) : visibleNotifs.length === 0 ? (
+                <div className="py-10 text-center">
+                  <HiOutlineBell className="w-8 h-8 text-primary-200 mx-auto mb-2" />
+                  <p className="text-sm text-primary-400">All caught up!</p>
+                  <p className="text-xs text-primary-300 mt-0.5">No new notifications</p>
+                </div>
               ) : (
-                <div className="max-h-72 overflow-y-auto">
-                  {notifications.map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`flex items-start gap-3 px-4 py-3 border-b border-primary-50 last:border-0 transition-colors ${
-                        notif.read ? 'bg-white' : 'bg-accent-50/40'
-                      }`}
-                    >
-                      <notif.icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${notif.color}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-primary-800">{notif.title}</p>
-                        <p className="text-[11px] text-primary-400 mt-0.5">{notif.desc}</p>
-                        <p className="text-[10px] text-primary-300 mt-1">{notif.time}</p>
+                <div className="max-h-[420px] overflow-y-auto divide-y divide-primary-50">
+                  {visibleNotifs.map((notif) => {
+                    const cfg = NOTIF_CONFIG[notif.type] || NOTIF_CONFIG.participant;
+                    const Icon = cfg.icon;
+                    const isRead = readIds.has(notif.id);
+                    return (
+                      <div key={notif.id}
+                        className={`flex items-start gap-3 px-4 py-3 transition-colors ${
+                          isRead ? 'bg-white' : 'bg-blue-50/30'
+                        }`}>
+                        {/* Icon badge */}
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${cfg.bg}`}>
+                          <Icon className={`w-4 h-4 ${cfg.color}`} />
+                        </div>
+                        {/* Text */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-semibold text-primary-700 leading-tight">{notif.title}</p>
+                            {!isRead && <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-0.5" />}
+                          </div>
+                          <p className="text-xs text-primary-600 mt-0.5 leading-snug">{notif.message}</p>
+                          <p className="text-[10px] text-primary-400 mt-1">{timeAgo(notif.time)}</p>
+                        </div>
+                        {/* Dismiss */}
+                        <button onClick={() => dismissNotif(notif.id)}
+                          className="p-0.5 rounded hover:bg-primary-100 transition-colors flex-shrink-0 mt-0.5"
+                          title="Dismiss">
+                          <HiOutlineX className="w-3.5 h-3.5 text-primary-300 hover:text-primary-500" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => dismissNotif(notif.id)}
-                        className="p-0.5 rounded hover:bg-primary-100 transition-colors flex-shrink-0"
-                        title="Dismiss"
-                      >
-                        <HiOutlineX className="w-3.5 h-3.5 text-primary-400" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Footer */}
+              {visibleNotifs.length > 0 && (
+                <div className="px-4 py-2.5 bg-primary-50/50 border-t border-primary-100 text-center">
+                  <p className="text-[10px] text-primary-400">
+                    {visibleNotifs.length} notification{visibleNotifs.length !== 1 ? 's' : ''}
+                    {unreadCount > 0 ? ` · ${unreadCount} unread` : ' · all read'}
+                  </p>
                 </div>
               )}
             </div>
@@ -388,18 +513,18 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
                 <p className="text-xs text-primary-400">{admin?.email || ''}</p>
               </div>
               <button
-                onClick={() => { setProfileOpen(false); navigate('/admin/profile'); }}
+                onClick={() => { setProfileOpen(false); navigate(isAdmin ? '/admin/profile' : '/airline/profile'); }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-primary-600 hover:bg-primary-50 transition-colors"
               >
                 <HiOutlineUserCircle className="w-4 h-4" />
                 My Profile
               </button>
               <button
-                onClick={() => { setProfileOpen(false); navigate('/admin'); }}
+                onClick={() => { setProfileOpen(false); navigate(isAdmin ? '/admin' : '/airline'); }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-primary-600 hover:bg-primary-50 transition-colors"
               >
                 <HiOutlineCog className="w-4 h-4" />
-                Settings
+                Dashboard
               </button>
               <div className="border-t border-primary-100 mt-1 pt-1">
                 <button
