@@ -7,13 +7,14 @@ import {
   HiOutlineArrowRight,
   HiOutlineEye,
   HiOutlineEyeOff,
+  HiOutlineShieldCheck,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { airlineLogin } from '../api';
+import { login } from '../api';
 import { useAuth } from '../context/AuthContext';
 import logoImg from '../assets/logo.png';
 
-export default function Login() {
+export default function AdminLogin() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -28,10 +29,10 @@ export default function Login() {
     }
     try {
       setLoading(true);
-      const res = await airlineLogin({ email: form.email, password: form.password });
-      loginAdmin(res.data.token, { ...res.data.admin, role: 'airline' });
-      toast.success(`Welcome, ${res.data.admin.airlineName}!`);
-      navigate('/airline');
+      const res = await login({ email: form.email, password: form.password });
+      loginAdmin(res.data.token, { ...res.data.admin, role: 'admin' });
+      toast.success('Welcome back, Admin!');
+      navigate('/admin');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {
@@ -56,9 +57,15 @@ export default function Login() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl border border-primary-100 shadow-xl shadow-primary-800/5 p-5 sm:p-8">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-primary-800">Airline Portal</h1>
-            <p className="text-sm text-primary-400 mt-1">Sign in to your airline account</p>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #000021 0%, #0000ff 100%)' }}>
+              <HiOutlineShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-primary-800">Admin Access</h1>
+              <p className="text-sm text-primary-400">IFOA administrator sign in</p>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,7 +77,7 @@ export default function Login() {
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="ops@yourairline.com"
+                  placeholder="admin@ifoa.com"
                   className="w-full pl-10 pr-4 py-2.5 bg-primary-50 border border-primary-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
                 />
               </div>
@@ -84,7 +91,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Enter your password"
+                  placeholder="Enter admin password"
                   className="w-full pl-10 pr-10 py-2.5 bg-primary-50 border border-primary-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent-400 focus:border-transparent transition-all"
                 />
                 <button
@@ -100,25 +107,20 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-accent-600 text-white rounded-xl text-sm font-semibold shadow-lg shadow-accent-600/25 hover:bg-accent-700 hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 text-white rounded-xl text-sm font-semibold shadow-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(135deg, #000021 0%, #0000ff 100%)' }}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <>Sign In <HiOutlineArrowRight className="w-4 h-4" /></>
+                <>Sign In as Admin <HiOutlineArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </form>
 
-          <div className="mt-6 space-y-3">
-            <p className="text-center text-sm text-primary-400">
-              New airline?{' '}
-              <Link to="/signup" className="text-accent-600 font-semibold hover:text-accent-700 transition-colors">
-                Register your airline
-              </Link>
-            </p>
+          <div className="mt-4">
             <p className="text-xs text-center text-primary-400 bg-primary-50 rounded-xl p-3">
-              ℹ Once submitted, enrollment records are locked. Only admins can make changes or issue certificates.
+              🔒 This page is for authorised IFOA administrators only.
             </p>
           </div>
         </div>

@@ -199,7 +199,8 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
         >
           <HiOutlineMenu className="w-5 h-5 text-primary-600" />
         </button>
-        {/* Search — visible on all pages for both admin and airline */}
+        {/* Search — hidden on new enrollment page, visible everywhere else */}
+        {location.pathname !== '/airline/enrollment/new' && location.pathname !== '/admin/participants/add' && (
         <div className="relative hidden sm:block" ref={searchRef}>
           <form onSubmit={handleSearchSubmit}>
             <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
@@ -275,6 +276,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
             </div>
           )}
         </div>
+        )} {/* end search hide conditional */}
       </div>
 
       {/* Right side */}
@@ -350,15 +352,14 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
             onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-primary-100 transition-colors"
           >
-            {/* Avatar: logo (airline) or initials (admin/fallback) */}
+            {/* Avatar — logo if uploaded, else blue gradient with letter/initials */}
             {!isAdmin && admin?.logo_url ? (
-              <div className="w-9 h-9 rounded-full bg-white border-2 border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center shadow-sm">
-                <img src={admin.logo_url} alt={admin.airlineName}
-                  className="w-full h-full object-contain p-0.5" />
+              <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center shadow-sm">
+                <img src={admin.logo_url} alt={admin.airlineName} className="w-full h-full object-contain p-0.5" />
               </div>
             ) : (
               <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #000021 0%, #0000ff 100%)' }}>
+                style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0000ff 100%)' }}>
                 <span className="text-white text-xs font-bold">
                   {!isAdmin && admin?.airlineName
                     ? admin.airlineName.charAt(0).toUpperCase()

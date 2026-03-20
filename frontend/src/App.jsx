@@ -5,6 +5,8 @@ import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AdminLogin from './pages/AdminLogin';
+import AdminSignup from './pages/AdminSignup';
 import Dashboard from './pages/Dashboard';
 import Participants from './pages/Participants';
 import AddParticipant from './pages/AddParticipant';
@@ -61,8 +63,10 @@ function App() {
       />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login"  element={<GuestRoute><Login /></GuestRoute>} />
-        <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
+        <Route path="/login"       element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/signup"      element={<GuestRoute><Signup /></GuestRoute>} />
+        <Route path="/admin-login"  element={<GuestRoute><AdminLogin /></GuestRoute>} />
+        <Route path="/admin-signup" element={<GuestRoute><AdminSignup /></GuestRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           {/* Available to all authenticated users */}
