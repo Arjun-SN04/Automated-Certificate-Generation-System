@@ -18,6 +18,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// For blob responses: if the server returns an error, parse the JSON from the blob
+// so the real error message is visible instead of a silent blob
+api.interceptors.response.use(
+  res => res,
+  async err => {
+    if (err.response?.config?.responseType === 'blob' && err.response.data instanceof Blob) {
+      try {
+        const text = await err.response.data.text();
+        const json = JSON.parse(text);
+        err.response.data = json;
+        err.message = json.error || err.message;
+      } catch { /* keep original */ }
+    }
+    return Promise.reject(err);
+  }
+);
+
 // ── Admin Auth ──────────────────────────────────────────────────────────────
 export const signup      = (data) => api.post('/auth/signup', data);
 export const login       = (data) => api.post('/auth/login', data);
@@ -26,6 +43,16 @@ export const updateProfile = (data) => api.put('/auth/profile', data);
 
 // ── Notifications ──────────────────────────────────────────────
 export const getNotifications = () => api.get('/notifications');
+
+// ── Certificates ────────────────────────────────────────────────────────────
+// Admin: generate (assigns cert_sequence) + preview
+export const generateCertificateBlob = (id, params = {}) =>
+  api.get(`/certificates/generate/${id}`, { params, responseType: 'blob' });
+export const generateCertificatePost = (id, body = {}) =>
+  api.post(`/certificates/generate/${id}`, body, { responseType: 'blob' });
+// Airline: download already-issued certificate (read-only, no cert_sequence assignment)
+export const downloadIssuedCertificate = (id) =>
+  api.get(`/certificates/download/${id}`, { responseType: 'blob' });
 
 // ── Airline Auth ────────────────────────────────────────────────────────────
 export const airlineSignup     = (data) => api.post('/auth/airline/signup', data);
@@ -52,19 +79,17 @@ export const deleteAirlineById      = (airlineId)   => api.delete(`/participants
 export const updateCertSequence     = (id, cert_sequence) => api.patch(`/participants/${id}/cert-sequence`, { cert_sequence });
 export const updateFullCertId       = (id, cert_sequence, cert_year) => api.patch(`/participants/${id}/full-cert-id`, { cert_sequence, cert_year });
 export const updateNdgScore         = (id, ndg_score) => api.patch(`/participants/${id}/ndg-score`, { ndg_score });
+export const revokeCertificate      = (id)            => api.patch(`/participants/${id}/revoke-cert`);
 export const sendSubmissionConfirmation = (data) => api.post('/participants/send-confirmation', data);
 export const getCertCounters        = () => api.get('/certificates/counters');
 export const resetCertCounter       = (training_type, startFrom = 0) => api.post('/certificates/counters/reset', { training_type, startFrom, mode: 'hard' });
 export const resetAllCertCounters   = (startFrom = 0) => api.post('/certificates/counters/reset', { all: true, startFrom, mode: 'hard' });
 
-// ── Certificates ────────────────────────────────────────────────────────────
-export const getModulesList     = ()     => api.get('/certificates/modules');
-export const generateCertificateUrl = (id) => `${API_BASE}/certificates/generate/${id}`;
-export const previewCertificateUrl  = (id) => `${API_BASE}/certificates/preview/${id}`;
+// ── Certificates (remaining helpers) ─────────────────────────────────────────────────────
+export const getModulesList                 = ()                          => api.get('/certificates/modules');
+export const generateCertificateUrl         = (id)                        => `${API_BASE}/certificates/generate/${id}`;
+export const previewCertificateUrl          = (id)                        => `${API_BASE}/certificates/preview/${id}`;
 export const generateCertificateWithModules = (id, modules, variant = 'default') =>
   api.post(`/certificates/generate/${id}`, { modules, templateVariant: variant }, { responseType: 'blob' });
-// Generate cert and return blob (no auto-download — caller decides what to do)
-export const generateCertificateBlob = (id, variant = 'default') =>
-  api.get(`/certificates/generate/${id}`, { params: { variant }, responseType: 'blob' });
 
 export default api;

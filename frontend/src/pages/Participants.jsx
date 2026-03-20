@@ -18,7 +18,7 @@ import {
   HiOutlineX,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import { getParticipants, deleteParticipant, generateCertificateBlob } from '../api';
+import { getParticipants, deleteParticipant, generateCertificateBlob, downloadIssuedCertificate } from '../api';
 
 const TRAINING_TYPES = [
   { value: 'FDI', label: 'Flight Dispatch Initial',      color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
@@ -57,14 +57,15 @@ function SubmissionGroup({ groupKey, records, defaultOpen = true }) {
   const [open, setOpen]             = useState(defaultOpen);
   const [downloading, setDownloading] = useState(null);
   const [preview, setPreview]       = useState(null);
-  const [detailRecord, setDetailRecord] = useState(null); // participant detail modal
+  const [detailRecord, setDetailRecord] = useState(null);
   const first    = records[0];
   const typeInfo = TYPE_MAP[first.training_type] || {};
 
+  // Airlines always use /download/:id — read-only, cert_sequence must already exist
   const handleDownload = async (rec) => {
     try {
       setDownloading(rec.id || rec._id);
-      const res  = await generateCertificateBlob(rec.id || rec._id);
+      const res  = await downloadIssuedCertificate(rec.id || rec._id);
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url  = window.URL.createObjectURL(blob);
       const link = document.createElement('a');

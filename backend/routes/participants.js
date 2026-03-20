@@ -496,6 +496,30 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// ─── PATCH /:id/revoke-cert (admin only) ─────────────────────────────────────
+// Sets cert_sequence and templateVariant back to null, returning the participant
+// to "Pending" state. The airline will no longer be able to preview/download.
+router.patch('/:id/revoke-cert', async (req, res) => {
+  try {
+    if (req.admin.role === 'airline') {
+      return res.status(403).json({ error: 'Only admins can revoke certificates.' });
+    }
+    const doc = await Participant.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Participant not found' });
+    if (!doc.cert_sequence) {
+      return res.status(400).json({ error: 'This participant has no certificate to revoke.' });
+    }
+    doc.cert_sequence     = null;
+    doc.templateVariant   = 'default';
+    doc.cert_year_override = null;
+    await doc.save();
+    res.json({ message: `Certificate revoked for ${doc.participant_name}`, participant: doc });
+  } catch (err) {
+    console.error('PATCH revoke-cert error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── PATCH /:id/full-cert-id (admin only) ────────────────────────────────────
 router.patch('/:id/full-cert-id', async (req, res) => {
   try {

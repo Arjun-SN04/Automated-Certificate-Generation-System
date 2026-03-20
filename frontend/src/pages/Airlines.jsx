@@ -23,7 +23,7 @@ import {
   getParticipantsByAirline, deleteParticipant, deleteAirlineData, deleteAirlineById,
   generateCertificateBlob, generateCertificateWithModules,
   updateFullCertId, getCertCounters, resetCertCounter, resetAllCertCounters,
-  updateNdgScore,
+  updateNdgScore, revokeCertificate,
 } from '../api';
 import ModuleSelector from '../components/ModuleSelector';
 
@@ -399,9 +399,11 @@ export default function Airlines() {
   const [counterModal, setCounterModal] = useState(false);
   const [counters, setCounters]     = useState([]);
   const [resetting, setResetting]   = useState(null);
+  const [filterCertStatus, setFilterCertStatus] = useState(''); // '' | 'pending' | 'generated'
   const [checkedAirlines, setCheckedAirlines] = useState(new Set());
   const [deletingAirlines, setDeletingAirlines] = useState(false);
   const [deletingSelected, setDeletingSelected] = useState(false);
+  const [revoking, setRevoking] = useState(false);
 
   const ALL_TYPES = ['FDI', 'FDR', 'FDA', 'FTL', 'HF', 'NDG', 'GD', 'TCD'];
 
@@ -521,8 +523,31 @@ export default function Airlines() {
   // Always use airlineKey() — never raw airlineName — so two accounts with the
   // same airline name are never treated as the same entry.
   const allAirlinesChecked = data.length > 0 && data.every(({ airline }) => checkedAirlines.has(airlineKey(airline)));
-  const toggleAllAirlines  = () => allAirlinesChecked ? setCheckedAirlines(new Set()) : setCheckedAirlines(new Set(data.map(({ airline }) => airlineKey(airline))));
-  const toggleAirline      = key => setCheckedAirlines(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggleAllAirlines = () => {
+    if (allAirlinesChecked) {
+      // Deselect all airlines AND all participants
+      setCheckedAirlines(new Set());
+      setChecked(new Set());
+    } else {
+      // Select all airlines AND all their participants
+      setCheckedAirlines(new Set(data.map(({ airline }) => airlineKey(airline))));
+      setChecked(new Set(data.flatMap(({ participants }) => participants.map(p => p.id || p._id))));
+    }
+  };
+  const toggleAirline = key => {
+    // Toggle the airline checkbox
+    setCheckedAirlines(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+    // Also select / deselect all participants belonging to that airline
+    const group = data.find(d => airlineKey(d.airline) === key);
+    if (!group) return;
+    const ids = group.participants.map(p => p.id || p._id);
+    setChecked(prev => {
+      const n = new Set(prev);
+      const alreadyIn = ids.every(id => n.has(id));
+      alreadyIn ? ids.forEach(id => n.delete(id)) : ids.forEach(id => n.add(id));
+      return n;
+    });
+  };
   const toggle             = key => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
   // ── Delete helpers ───────────────────────────────────────────────────────────
@@ -542,6 +567,31 @@ export default function Airlines() {
     setChecked(new Set());
     fetchData();
     fail === 0 ? toast.success(`${ok} record${ok !== 1 ? 's' : ''} deleted`) : toast.error(`${ok} deleted, ${fail} failed`);
+  };
+
+  // Revoke certificates — sets cert_sequence back to null (Pending state)
+  const handleRevokeSelected = async () => {
+    const withCerts = allParticipants.filter(p => checked.has(p.id || p._id) && p.cert_sequence);
+    if (withCerts.length === 0) {
+      toast.error('None of the selected participants have a certificate to revoke'); return;
+    }
+    if (!window.confirm(
+      `Revoke certificates for ${withCerts.length} participant${withCerts.length > 1 ? 's' : ''}?\n\n` +
+      `This will set them back to Pending status.\n` +
+      `The airline will immediately lose access to download/preview.\n\n` +
+      `You can regenerate them at any time.`
+    )) return;
+    setRevoking(true);
+    let ok = 0, fail = 0;
+    for (const p of withCerts) {
+      try { await revokeCertificate(p.id || p._id); ok++; }
+      catch (err) { console.error('Revoke failed:', err.response?.data?.error); fail++; }
+    }
+    setRevoking(false);
+    setChecked(new Set());
+    fetchData();
+    if (fail === 0) toast.success(`${ok} certificate${ok > 1 ? 's' : ''} revoked — now Pending`);
+    else toast.error(`${ok} revoked, ${fail} failed`);
   };
 
   const handleDeleteAirlineData = async (airline, count) => {
@@ -591,12 +641,17 @@ export default function Airlines() {
     try {
       const res = modulesOverride
         ? await generateCertificateWithModules(pid, modulesOverride, variant)
-        : await generateCertificateBlob(pid, variant);
+        : await generateCertificateBlob(pid, { variant }); // pass as object so axios sends ?variant=...
       const blob    = new Blob([res.data], { type: 'application/pdf' });
       const blobUrl = window.URL.createObjectURL(blob);
       const certId  = p.cert_sequence ? `${p.training_type}-${String(p.cert_sequence).padStart(5, '0')}` : 'Assigned';
       return { id: pid, name: p.participant_name, trainingType: p.training_type, certId, blobUrl, filename: `Certificate_${(p.participant_name || '').replace(/[^a-zA-Z0-9]/g, '_')}.pdf` };
-    } catch { toast.error(`Failed: ${p.participant_name}`); return null; }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Unknown error';
+      console.error('Certificate generation failed:', msg);
+      toast.error(`Failed for ${p.participant_name}: ${msg}`);
+      return null;
+    }
   };
 
   const runBulkGenerate = async (toGenerate, modulesMap, variant = 'default') => {
@@ -615,6 +670,29 @@ export default function Airlines() {
   const handleGenerateSelected = async () => {
     if (checked.size === 0) { toast.error('Select at least one participant'); return; }
     const toGenerate = allParticipants.filter(p => checked.has(p.id || p._id));
+
+    // Warn about participants whose cert is already generated
+    const alreadyDone = toGenerate.filter(p => p.cert_sequence);
+    const pending     = toGenerate.filter(p => !p.cert_sequence);
+
+    if (alreadyDone.length > 0 && pending.length === 0) {
+      // ALL selected already have certificates
+      toast(
+        `All ${alreadyDone.length} selected participant${alreadyDone.length > 1 ? 's' : ''} already have certificates generated. Use "Revoke Cert" first if you want to regenerate.`,
+        { icon: '⚠️', duration: 5000 }
+      );
+      return;
+    }
+
+    if (alreadyDone.length > 0) {
+      // SOME already have certificates — confirm to regenerate those + generate pending
+      const names = alreadyDone.map(p => p.participant_name).join(', ');
+      const proceed = window.confirm(
+        `${alreadyDone.length} of the selected participant${alreadyDone.length > 1 ? 's' : ''} already ha${alreadyDone.length > 1 ? 've' : 's'} a certificate:\n${names}\n\nGenerating will OVERWRITE their existing certificate numbers.\n\nContinue with all ${toGenerate.length}? (Or cancel and use "Revoke Cert" to selectively reset first)`
+      );
+      if (!proceed) return;
+    }
+
     const fdrNeedsModules = toGenerate.find(p => p.training_type === 'FDR' && !p.modules);
     if (fdrNeedsModules) {
       pendingFdrRecord.current = { record: fdrNeedsModules, rest: toGenerate.filter(p => (p.id || p._id) !== (fdrNeedsModules.id || fdrNeedsModules._id)) };
@@ -656,7 +734,10 @@ export default function Airlines() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success('Certificate downloaded');
-    } catch { toast.error('Failed to download'); }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Download failed';
+      toast.error(msg);
+    }
     finally { setDownloadingId(null); }
   };
 
@@ -665,7 +746,11 @@ export default function Airlines() {
     airline,
     participants: participants.filter(p => {
       const nm = !search || [p.participant_name, p.first_name, p.last_name, p.department].some(s => (s || '').toLowerCase().includes(search.toLowerCase()));
-      return nm && (!filterType || p.training_type === filterType);
+      const typeMatch   = !filterType || p.training_type === filterType;
+      const statusMatch = !filterCertStatus
+        || (filterCertStatus === 'pending'   && !p.cert_sequence)
+        || (filterCertStatus === 'generated' &&  p.cert_sequence);
+      return nm && typeMatch && statusMatch;
     }),
   })).filter(({ participants }) => participants.length > 0);
 
@@ -674,7 +759,7 @@ export default function Airlines() {
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 sm:space-y-6">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col">
 
       {/* Modals */}
       <ModuleSelector isOpen={moduleModal.open} onClose={() => { setModuleModal({ open: false, record: null }); pendingFdrRecord.current = null; }} onConfirm={handleModuleConfirm} initialModules={moduleModal.record?.modules ? moduleModal.record.modules.split(',').map(m => m.trim()) : []} />
@@ -719,7 +804,8 @@ export default function Airlines() {
         })()}
       </AnimatePresence>
 
-      {/* ── Page Header ── */}
+      {/* ── Page content (padded) ── */}
+      <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-primary-800">Airlines &amp; Submissions</h1>
@@ -743,34 +829,99 @@ export default function Airlines() {
         </div>
       </div>
 
-      {/* ── Bulk Action Bar ── */}
-      <div className="card p-3 sm:p-4 space-y-3">
-        <div className="flex items-center justify-between">
+      {/* ── Sticky Control Bar ── */}
+      <div className="sticky top-0 z-20 px-4 sm:px-6 py-3 bg-white border-b border-primary-200 shadow-sm space-y-3">
+
+        {/* Row 1: Participant select-all + count + Airline select-all + delete airlines */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Select all participants */}
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <div onClick={toggleSelectAll}
               className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${allChecked ? 'bg-primary-800 border-primary-800' : 'border-primary-300 hover:border-primary-500'}`}>
               {allChecked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
               {!allChecked && checked.size > 0 && <div className="w-2 h-0.5 bg-primary-500 rounded" />}
             </div>
-            <span className="text-sm font-medium text-primary-700">{allChecked ? 'Deselect All' : 'Select All'}</span>
+            <span className="text-xs font-medium text-primary-700">{allChecked ? 'Deselect All Candidates' : 'Select All Candidates'}</span>
           </label>
+
           {checked.size > 0 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-100 text-primary-700 text-xs font-semibold">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-100 text-primary-700 text-xs font-semibold">
               <HiOutlineCheckCircle className="w-3.5 h-3.5" />{checked.size} selected
             </span>
           )}
+
+          <div className="w-px h-4 bg-primary-200 mx-1" />
+
+          {/* Select all airlines */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div onClick={toggleAllAirlines}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${allAirlinesChecked ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'}`}>
+              {allAirlinesChecked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+              {!allAirlinesChecked && checkedAirlines.size > 0 && <div className="w-2 h-0.5 bg-red-400 rounded" />}
+            </div>
+            <span className="text-xs font-medium text-primary-700">{allAirlinesChecked ? 'Deselect All Airlines' : 'Select All Airlines'}</span>
+          </label>
+
+          {checkedAirlines.size > 0 && (
+            <>
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 text-xs font-semibold">
+                <HiOutlineOfficeBuilding className="w-3.5 h-3.5" />{checkedAirlines.size} airline{checkedAirlines.size > 1 ? 's' : ''}
+              </span>
+              <button onClick={handleDeleteSelectedAirlines} disabled={deletingAirlines}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-300 bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-60">
+                {deletingAirlines ? <Spin /> : <HiOutlineTrash className="w-3.5 h-3.5" />}
+                {deletingAirlines ? 'Deleting…' : `Delete ${checkedAirlines.size} Airline${checkedAirlines.size > 1 ? 's' : ''}`}
+              </button>
+            </>
+          )}
         </div>
+
+        {/* Row 2: Action buttons */}
         <div className="flex flex-wrap gap-2">
-          <button onClick={handleDeleteSelected} disabled={checked.size === 0 || deletingSelected}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${checked.size > 0 && !deletingSelected ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100' : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'}`}>
-            {deletingSelected ? <Spin cls="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600" /> : <HiOutlineTrash className="w-3.5 h-3.5" />}
-            {deletingSelected ? 'Deleting…' : checked.size > 0 ? `Delete ${checked.size}` : 'Delete Selected'}
-          </button>
+          {/* Generate */}
           <button onClick={handleGenerateSelected} disabled={checked.size === 0 || generating}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all ${checked.size > 0 && !generating ? 'bg-primary-800 text-white hover:bg-primary-900 shadow-md' : 'bg-primary-100 text-primary-400 cursor-not-allowed'}`}>
             {generating ? <Spin /> : <HiOutlineDocumentDownload className="w-3.5 h-3.5" />}
             {generating ? 'Generating…' : checked.size > 0 ? `Generate ${checked.size} Cert${checked.size > 1 ? 's' : ''}` : 'Generate Selected'}
           </button>
+          {/* Revoke — blue like Preview button */}
+          <button onClick={handleRevokeSelected} disabled={checked.size === 0 || revoking}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+              checked.size > 0 && !revoking
+                ? 'border-blue-200 text-blue-700 hover:bg-blue-100'
+                : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'
+            }`}
+            style={checked.size > 0 && !revoking ? { background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' } : {}}>
+            {revoking ? <Spin cls="w-3.5 h-3.5 border-2 border-blue-300 border-t-blue-600" />
+              : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>}
+            {revoking ? 'Revoking…' : 'Revoke Cert'}
+          </button>
+          {/* Delete selected participants */}
+          <button onClick={handleDeleteSelected} disabled={checked.size === 0 || deletingSelected}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${checked.size > 0 && !deletingSelected ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100' : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'}`}>
+            {deletingSelected ? <Spin cls="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600" /> : <HiOutlineTrash className="w-3.5 h-3.5" />}
+            {deletingSelected ? 'Deleting…' : checked.size > 0 ? `Delete ${checked.size} Candidate${checked.size > 1 ? 's' : ''}` : 'Delete Candidates'}
+          </button>
+
+          <div className="flex-1" />
+
+          {/* Cert status filter */}
+          <div className="flex items-center gap-1 bg-primary-50 rounded-xl p-1">
+            {[['', 'All'], ['pending', '⏳ Pending'], ['generated', '✅ Generated']].map(([val, label]) => (
+              <button key={val} onClick={() => setFilterCertStatus(val)}
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
+                style={filterCertStatus === val
+                  ? { background: '#1d4ed8', color: '#ffffff', boxShadow: '0 1px 3px rgba(29,78,216,0.4)' }
+                  : { color: '#94a3b8' }
+                }>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Reset Counters */}
           <button onClick={openCounterModal}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -797,32 +948,6 @@ export default function Airlines() {
           </div>
         </div>
       </div>
-
-      {/* ── Airline-level select + delete bar ── */}
-      {!loading && data.length > 0 && (
-        <div className="card p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <div onClick={toggleAllAirlines}
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-colors ${allAirlinesChecked ? 'bg-red-600 border-red-600' : 'border-primary-300 hover:border-red-400'}`}>
-              {allAirlinesChecked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-              {!allAirlinesChecked && checkedAirlines.size > 0 && <div className="w-2 h-0.5 bg-red-400 rounded" />}
-            </div>
-            <span className="text-sm font-medium text-primary-700">{allAirlinesChecked ? 'Deselect All Airlines' : 'Select All Airlines'}</span>
-          </label>
-          <div className="flex items-center gap-2 flex-wrap">
-            {checkedAirlines.size > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 text-xs font-semibold">
-                <HiOutlineOfficeBuilding className="w-3.5 h-3.5" />{checkedAirlines.size} airline{checkedAirlines.size > 1 ? 's' : ''} selected
-              </span>
-            )}
-            <button onClick={handleDeleteSelectedAirlines} disabled={checkedAirlines.size === 0 || deletingAirlines}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition-all ${checkedAirlines.size > 0 && !deletingAirlines ? 'border-red-300 bg-red-600 text-white hover:bg-red-700' : 'border-primary-200 bg-primary-50 text-primary-300 cursor-not-allowed'}`}>
-              {deletingAirlines ? <Spin /> : <HiOutlineTrash className="w-4 h-4" />}
-              {deletingAirlines ? 'Deleting…' : checkedAirlines.size > 0 ? `Delete ${checkedAirlines.size} Airline${checkedAirlines.size > 1 ? 's' : ''}` : 'Delete Airlines'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Loading / empty ── */}
       {loading && (
@@ -902,25 +1027,7 @@ export default function Airlines() {
               </button>
 
               {/* Airline action buttons */}
-              <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                {expanded[aKey] && participants.length > 0 && (
-                  <>
-                    <button onClick={() => toggleGroupAll(participants)}
-                      className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${groupAllCk ? 'bg-primary-800 border-primary-800 text-white' : 'border-primary-200 text-primary-600 hover:bg-primary-50'}`}>
-                      {groupAllCk ? 'Deselect all' : 'Select all'}
-                    </button>
-                    <button onClick={handleDeleteSelected} disabled={!groupSome || deletingSelected}
-                      className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${groupSome && !deletingSelected ? 'border-red-200 text-red-600 bg-red-50 hover:bg-red-100' : 'border-primary-200 text-primary-300 cursor-not-allowed'}`}>
-                      {deletingSelected ? <Spin cls="w-3.5 h-3.5 border-2 border-red-300 border-t-red-600" /> : <HiOutlineTrash className="w-3.5 h-3.5" />}
-                      Delete sel.
-                    </button>
-                  </>
-                )}
-                <button onClick={() => handleDeleteAirlineData(airline, participants.length)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-semibold border-red-300 text-red-700 bg-red-50 hover:bg-red-100">
-                  <HiOutlineTrash className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Delete Airline</span>
-                </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button onClick={() => toggle(aKey)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
                   {expanded[aKey] ? <HiOutlineChevronUp className="w-5 h-5 text-primary-400" /> : <HiOutlineChevronDown className="w-5 h-5 text-primary-400" />}
                 </button>
@@ -937,20 +1044,6 @@ export default function Airlines() {
 
                     {/* Mobile: cards */}
                     <div className="sm:hidden p-3 space-y-2">
-                      {/* Mobile group select/delete */}
-                      <div className="flex items-center gap-2 flex-wrap pb-1">
-                        <button onClick={() => toggleGroupAll(participants)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${groupAllCk ? 'bg-primary-800 border-primary-800 text-white' : 'border-primary-200 text-primary-600 hover:bg-primary-50'}`}>
-                          {groupAllCk ? 'Deselect all' : 'Select all'}
-                        </button>
-                        {groupSome && (
-                          <button onClick={handleDeleteSelected} disabled={deletingSelected}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 text-xs font-semibold text-red-600 bg-red-50">
-                            {deletingSelected ? <Spin cls="w-3 h-3 border-2 border-red-300 border-t-red-600" /> : <HiOutlineTrash className="w-3.5 h-3.5" />}
-                            Delete selected
-                          </button>
-                        )}
-                      </div>
                       {participants.map(p => (
                         <ParticipantCard key={p.id || p._id} p={p} checked={checked} onCheck={toggleOne}
                           onPreview={setRowPreview} onDownload={handleDownloadIssued} onEdit={() => {}}
@@ -1123,6 +1216,8 @@ export default function Airlines() {
           </div>
         );
       })}
+
+      </div> {/* end padded content wrapper */}
     </motion.div>
   );
 }
